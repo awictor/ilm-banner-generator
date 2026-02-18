@@ -1,0 +1,5 @@
+streamlit==1.41.1
+Pillow==11.1.0
+numpy==2.2.3
+requests==2.32.3
+duckduckgo-search==7.3.2
