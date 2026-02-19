@@ -9,7 +9,6 @@ from io import BytesIO
 
 import requests
 import streamlit as st
-from duckduckgo_search import DDGS
 from PIL import Image
 
 import banner_engine
@@ -37,22 +36,59 @@ if APP_PASSWORD:
 
 # ── Image search helper ─────────────────────────────────────────
 
+BRAVE_API_KEY = os.environ.get("BRAVE_API_KEY", "")
+
+
 @st.cache_data(ttl=300, show_spinner=False)
+def _search_brave(query, max_results=12):
+    """Image search via Brave Search API."""
+    resp = requests.get(
+        "https://api.search.brave.com/res/v1/images/search",
+        params={"q": query, "count": min(max_results, 20)},
+        headers={"X-Subscription-Token": BRAVE_API_KEY, "Accept": "application/json"},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return [
+        {
+            "title": r.get("title", ""),
+            "image": r.get("properties", {}).get("url", r.get("url", "")),
+            "thumbnail": r.get("thumbnail", {}).get("src", ""),
+        }
+        for r in resp.json().get("results", [])
+    ]
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _search_ddg(query, max_results=12):
+    """Image search via DuckDuckGo (works locally, blocked on cloud IPs)."""
+    from duckduckgo_search import DDGS
+    with DDGS() as ddgs:
+        return list(ddgs.images(query, max_results=max_results))
+
+
 def search_images(query, max_results=12):
-    """Search for images using DuckDuckGo with retry logic.
-    Returns list of dicts with 'title', 'image', and 'thumbnail' keys."""
-    for attempt in range(3):
+    """Try Brave API first (works on AWS), fall back to DuckDuckGo (works locally)."""
+    if BRAVE_API_KEY:
         try:
-            with DDGS() as ddgs:
-                results = list(ddgs.images(query, max_results=max_results))
-            return results
+            return _search_brave(query, max_results)
         except Exception as e:
-            if attempt < 2 and "403" in str(e):
-                time.sleep(2 ** (attempt + 1))  # 2s, 4s backoff
-                continue
-            st.error(f"Image search failed: {e}")
-            return []
-    return []
+            st.warning(f"Brave search failed: {e}. Trying DuckDuckGo...")
+    try:
+        return _search_ddg(query, max_results)
+    except Exception as e:
+        st.error(f"Image search failed: {e}")
+        return []
+
+
+def remove_background(img):
+    """Remove background from image using rembg."""
+    from rembg import remove
+    img_bytes = BytesIO()
+    img.save(img_bytes, format="PNG")
+    img_bytes.seek(0)
+    result_bytes = remove(img_bytes.getvalue())
+    return Image.open(BytesIO(result_bytes))
 
 
 def fetch_image_from_url(url):
@@ -109,6 +145,10 @@ def image_picker(label, key_prefix):
             img = st.session_state[f"{key_prefix}_picked"]
 
     if img:
+        remove_bg = st.toggle("Remove background", key=f"{key_prefix}_rembg")
+        if remove_bg:
+            with st.spinner("Removing background..."):
+                img = remove_background(img)
         st.image(img, caption=f"{label} preview", width=200)
 
     return img
