@@ -163,7 +163,6 @@ def _build_headline_banner(w, h, cfg, lang):
 
     # Product image
     prod = cfg["product_image"].convert("RGBA")
-    prod = remove_white_bg(prod)
     prod = trim_transparent(prod)
     prod = fit_image(prod, prod_r - prod_l, h - 4)
     px = prod_l + (prod_r - prod_l - prod.width) // 2
@@ -214,7 +213,6 @@ def _build_compact_banner(w, h, cfg, lang):
 
     # Product image
     prod = cfg["product_image"].convert("RGBA")
-    prod = remove_white_bg(prod)
     prod = trim_transparent(prod)
     prod = fit_image(prod, prod_r - prod_l, h - 4)
     px = prod_l + (prod_r - prod_l - prod.width) // 2
