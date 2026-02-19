@@ -234,11 +234,35 @@ def _build_compact_banner(w, h, cfg, lang):
     return banner
 
 
+def _build_hqp(cfg):
+    """75x75 square: background color + centered product image."""
+    bg = hex_to_rgb(cfg["bg_color_hex"])
+    banner = Image.new("RGB", (75, 75), bg)
+
+    prod = cfg["product_image"].convert("RGBA")
+    prod = trim_transparent(prod)
+    pad = 4
+    prod = fit_image(prod, 75 - pad * 2, 75 - pad * 2)
+    px = (75 - prod.width) // 2
+    py = (75 - prod.height) // 2
+    paste_with_alpha(banner, prod, (px, py))
+
+    return banner
+
+
 # ── Public API ───────────────────────────────────────────────────
 
 def generate_all(cfg):
-    """Create all 12 banners and return as list of (filename, BytesIO) tuples."""
+    """Create all banners and return as list of (filename, BytesIO) tuples."""
     results = []
+
+    # HQP (75x75 product thumbnail)
+    hqp = _build_hqp(cfg)
+    hqp_name = f"75x75_HQP_{cfg['brand_abbrev']}.jpg"
+    hqp_buf = BytesIO()
+    hqp.save(hqp_buf, "JPEG", quality=95)
+    hqp_buf.seek(0)
+    results.append((hqp_name, hqp_buf))
 
     for lang in ("ENG", "ESP"):
         for w, h, has_hl in LARGE_SIZES:
