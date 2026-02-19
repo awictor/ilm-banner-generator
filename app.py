@@ -82,13 +82,18 @@ def search_images(query, max_results=12):
 
 
 def remove_background(img):
-    """Remove background from image using rembg."""
+    """Remove background from image using rembg, with hard alpha edges."""
+    import numpy as np
     from rembg import remove
     img_bytes = BytesIO()
     img.save(img_bytes, format="PNG")
     img_bytes.seek(0)
     result_bytes = remove(img_bytes.getvalue())
-    return Image.open(BytesIO(result_bytes))
+    result = Image.open(BytesIO(result_bytes)).convert("RGBA")
+    # Threshold alpha to eliminate semi-transparent bleed
+    data = np.array(result)
+    data[:, :, 3] = np.where(data[:, :, 3] > 128, 255, 0)
+    return Image.fromarray(data)
 
 
 def fetch_image_from_url(url):
