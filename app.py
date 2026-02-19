@@ -205,15 +205,12 @@ if st.button("Generate Banners", type="primary", disabled=not ready):
 
     st.success(f"Generated {len(results)} banners!")
 
-    # Preview the 6 large banners
-    st.subheader("Preview (large sizes)")
+    # Preview all banners
+    st.subheader("Preview")
     for name, buf in results:
-        # Show only the large sizes in preview
-        w = int(name.split("x")[0])
-        if w >= 640:
-            st.caption(name)
-            buf.seek(0)
-            st.image(buf, use_container_width=True)
+        st.caption(name)
+        buf.seek(0)
+        st.image(buf, use_container_width=True)
 
     # ZIP download
     zip_buf = BytesIO()
