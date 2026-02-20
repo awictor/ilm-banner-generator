@@ -61,8 +61,8 @@ def remove_background(img):
     """Remove background from image using InSPyReNet (transparent-background)."""
     from transparent_background import Remover
     remover = Remover()
-    img_rgba = img.convert("RGBA")
-    result = remover.process(img_rgba)
+    img_rgb = img.convert("RGB")
+    result = remover.process(img_rgb, type="rgba")
     return result.convert("RGBA")
 
 
