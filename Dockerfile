@@ -8,7 +8,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code and fonts
 COPY Fonts/ Fonts/
+COPY pages/ pages/
 COPY banner_engine.py .
+COPY story_engine.py .
+COPY story_themes.py .
+COPY shared.py .
 COPY app.py .
 
 # Streamlit config: disable CORS/XSRF for App Runner, set port 8080

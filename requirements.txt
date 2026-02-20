@@ -4,3 +4,4 @@ numpy==2.2.3
 requests==2.32.3
 duckduckgo-search==7.3.2
 rembg==2.0.57
+openpyxl==3.1.5
