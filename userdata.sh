@@ -10,7 +10,7 @@ cd /home/ec2-user
 git clone https://github.com/awictor/ilm-banner-generator.git
 cd ilm-banner-generator
 
-# Install Python dependencies (includes rembg, openpyxl, etc.)
+# Install Python dependencies (includes transparent-background, openpyxl, etc.)
 pip3.11 install -r requirements.txt
 
 # Create a startup script so it survives reboots
