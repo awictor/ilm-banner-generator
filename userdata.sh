@@ -23,7 +23,7 @@ After=network.target
 Type=simple
 User=ec2-user
 WorkingDirectory=/home/ec2-user/ilm-banner-generator
-Environment=BRAVE_API_KEY=REDACTED_KEY
+EnvironmentFile=-/home/ec2-user/.env
 ExecStart=/usr/bin/python3.11 -m streamlit run app.py --server.port 8501 --server.address 0.0.0.0 --server.headless true
 Restart=always
 RestartSec=3
