@@ -252,13 +252,30 @@ def _build_hqp(cfg):
 
 # ── Public API ───────────────────────────────────────────────────
 
-def generate_all(cfg):
-    """Create all banners and return as list of (filename, BytesIO) tuples."""
+def _sanitize_filename(name):
+    """Replace spaces and unsafe characters for use in filenames."""
+    import re
+    return re.sub(r'[^\w\-.]', '_', name).strip('_')
+
+
+def generate_all(cfg, region="US"):
+    """Create all banners and return as list of (filename, BytesIO) tuples.
+
+    region="US"  → filenames like  1200x90_ENG_ILM_{brand_abbrev}.jpg
+    region="CA"  → filenames like  1200x90_ILM_{brand_name}_CA.jpg
+    """
     results = []
+    brand_tag = (
+        _sanitize_filename(cfg['brand_name']) if region == "CA"
+        else cfg['brand_abbrev']
+    )
 
     # HQP (75x75 product thumbnail)
     hqp = _build_hqp(cfg)
-    hqp_name = f"75x75_HQP_{cfg['brand_abbrev']}.jpg"
+    if region == "CA":
+        hqp_name = f"75x75_{PLACEMENT}_{brand_tag}_CA.jpg"
+    else:
+        hqp_name = f"75x75_HQP_{brand_tag}.jpg"
     hqp_buf = BytesIO()
     hqp.save(hqp_buf, "JPEG", quality=95)
     hqp_buf.seek(0)
@@ -272,7 +289,10 @@ def generate_all(cfg):
                 banner = _build_compact_banner(w, h, cfg, lang)
 
             # Full-size
-            name = f"{w}x{h}_{lang}_{PLACEMENT}_{cfg['brand_abbrev']}.jpg"
+            if region == "CA":
+                name = f"{w}x{h}_{PLACEMENT}_{brand_tag}_CA_{lang}.jpg"
+            else:
+                name = f"{w}x{h}_{lang}_{PLACEMENT}_{brand_tag}.jpg"
             buf = BytesIO()
             banner.save(buf, "JPEG", quality=95)
             buf.seek(0)
@@ -281,7 +301,10 @@ def generate_all(cfg):
             # Half-size
             hw, hh = w // 2, h // 2
             half = banner.resize((hw, hh), Image.LANCZOS)
-            hname = f"{hw}x{hh}_{lang}_{PLACEMENT}_{cfg['brand_abbrev']}.jpg"
+            if region == "CA":
+                hname = f"{hw}x{hh}_{PLACEMENT}_{brand_tag}_CA_{lang}.jpg"
+            else:
+                hname = f"{hw}x{hh}_{lang}_{PLACEMENT}_{brand_tag}.jpg"
             hbuf = BytesIO()
             half.save(hbuf, "JPEG", quality=95)
             hbuf.seek(0)
