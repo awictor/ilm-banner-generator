@@ -36,5 +36,6 @@ st.markdown(
     "Select a tool from the sidebar to get started:\n\n"
     "- **ILM Banner Generator** — Create banner ads for ILM brands\n"
     "- **ILM Banner Generator – Canada** — Same banners with CA naming convention\n"
-    "- **Just Dropped Generator** — Create Instagram Story frames for Amazon channels"
+    "- **Just Dropped Generator** — Create Instagram Story frames for Amazon channels\n"
+    "- **ILM Banner Sliders** — Same banner generator with sliders to adjust element positions"
 )
