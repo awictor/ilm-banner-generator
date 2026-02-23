@@ -122,13 +122,17 @@ def _build_headline_banner(w, h, cfg, lang):
     pad = max(int(h * 0.14), 8)
 
     logo_l = pad
-    logo_r = int(w * 0.16)
-    hl_l = int(w * 0.17)
-    hl_r = int(w * 0.62)
-    prod_l = int(w * 0.62)
-    prod_r = int(w * 0.77)
+    logo_r = int(w * 0.14)
+    hl_l = int(w * 0.18)
+    hl_r = int(w * 0.55)
     cta_l = int(w * 0.78)
     cta_r = w - pad
+
+    # Center product zone between headline and CTA
+    prod_mid = (hl_r + cta_l) // 2
+    prod_half = int(w * 0.075)
+    prod_l = prod_mid - prod_half
+    prod_r = prod_mid + prod_half
 
     noa_font = ImageFont.truetype(FONT_BOLD, max(int(h * 0.19), 10))
     cta_font = ImageFont.truetype(FONT_REGULAR, max(int(h * 0.24), 12))
@@ -197,11 +201,15 @@ def _build_compact_banner(w, h, cfg, lang):
     pad = max(int(h * 0.14), 8)
 
     logo_l = pad
-    logo_r = int(w * 0.28)
-    prod_l = int(w * 0.29)
-    prod_r = int(w * 0.52)
-    cta_l = int(w * 0.54)
+    logo_r = int(w * 0.26)
+    cta_l = int(w * 0.64)
     cta_r = w - pad
+
+    # Center product zone between logo and CTA
+    prod_mid = (logo_r + cta_l) // 2
+    prod_half = int(w * 0.12)
+    prod_l = prod_mid - prod_half
+    prod_r = prod_mid + prod_half
 
     cta_font = ImageFont.truetype(FONT_REGULAR, max(int(h * 0.24), 12))
 
