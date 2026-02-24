@@ -37,5 +37,6 @@ st.markdown(
     "- **ILM Banner Generator** — Create banner ads for ILM brands\n"
     "- **ILM Banner Generator – Canada** — Same banners with CA naming convention\n"
     "- **Just Dropped Generator** — Create Instagram Story frames for Amazon channels\n"
-    "- **ILM Banner Sliders** — Same banner generator with sliders to adjust element positions"
+    "- **ILM Banner Sliders** — Same banner generator with sliders to adjust element positions\n"
+    "- **Just Dropped Simulator** — Quick-fire tool to preview Just Dropped frames"
 )

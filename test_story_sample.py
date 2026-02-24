@@ -1,11 +1,17 @@
 """
 Generate sample Just Dropped story frames with real product images.
 Outputs horizontal strip previews (all cards side by side) matching reference format.
+
+Usage:
+  python test_story_sample.py                   # local, no bg removal
+  python test_story_sample.py --remove-bg       # with background removal (needs transparent-background)
+  python test_story_sample.py --output-dir /path/to/dir  # custom output directory
 """
 
 import os
 import sys
 import time
+import argparse
 import requests
 from io import BytesIO
 from PIL import Image, ImageDraw
@@ -14,15 +20,19 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import story_engine
 
-BASE_OUTPUT_DIR = r"C:\Users\awictor\Documents\ILM_Banner_Generator\Just Dropped Instagram Story Franchise Generator"
+# Default output dirs per platform
+if sys.platform == "win32":
+    _DEFAULT_OUTPUT = r"C:\Users\awictor\Documents\ILM_Banner_Generator\Just Dropped Instagram Story Franchise Generator"
+else:
+    _DEFAULT_OUTPUT = os.path.expanduser("~/just_dropped_output")
 
 
-def _next_sample_dir():
+def _next_sample_dir(base_dir):
     """Find the next 'Sample N' folder number and create it."""
-    os.makedirs(BASE_OUTPUT_DIR, exist_ok=True)
+    os.makedirs(base_dir, exist_ok=True)
     existing = [
-        d for d in os.listdir(BASE_OUTPUT_DIR)
-        if os.path.isdir(os.path.join(BASE_OUTPUT_DIR, d)) and d.startswith("Sample ")
+        d for d in os.listdir(base_dir)
+        if os.path.isdir(os.path.join(base_dir, d)) and d.startswith("Sample ")
     ]
     nums = []
     for d in existing:
@@ -31,9 +41,18 @@ def _next_sample_dir():
         except (ValueError, IndexError):
             pass
     next_num = max(nums, default=0) + 1
-    sample_dir = os.path.join(BASE_OUTPUT_DIR, f"Sample {next_num}")
+    sample_dir = os.path.join(base_dir, f"Sample {next_num}")
     os.makedirs(sample_dir, exist_ok=True)
     return sample_dir
+
+
+def _remove_bg(img):
+    """Remove background using transparent-background library."""
+    from transparent_background import Remover
+    remover = Remover()
+    img_rgb = img.convert("RGB")
+    result = remover.process(img_rgb, type="rgba")
+    return result.convert("RGBA")
 
 # ── Sample data (9 products per channel -> 11 cards total) ───────
 SAMPLE_PRODUCTS = {
@@ -165,8 +184,24 @@ def make_horizontal_strip(frames, card_height=800):
 
 
 def main():
-    OUTPUT_DIR = _next_sample_dir()
+    parser = argparse.ArgumentParser(description="Generate Just Dropped sample frames")
+    parser.add_argument("--remove-bg", action="store_true",
+                        help="Remove background from product images")
+    parser.add_argument("--output-dir", default=_DEFAULT_OUTPUT,
+                        help="Base output directory")
+    args = parser.parse_args()
+
+    OUTPUT_DIR = _next_sample_dir(args.output_dir)
     print(f"Output folder: {OUTPUT_DIR}")
+    print(f"Background removal: {'ON' if args.remove_bg else 'OFF'}")
+
+    # Pre-load the bg remover once if needed
+    remover = None
+    if args.remove_bg:
+        print("Loading background removal model...")
+        from transparent_background import Remover
+        remover = Remover()
+        print("Model loaded.")
 
     franchise_data = {}
     theme_names = {
@@ -185,6 +220,17 @@ def main():
         products = []
         for item in items:
             img = search_and_fetch(item["query"], item["product_name"])
+
+            # Remove background if enabled
+            if remover is not None:
+                try:
+                    print(f"  Removing background...")
+                    img_rgb = img.convert("RGB")
+                    img = remover.process(img_rgb, type="rgba").convert("RGBA")
+                    print(f"  BG removed OK")
+                except Exception as e:
+                    print(f"  BG removal failed: {e}, using original")
+
             products.append({
                 "asin": item["asin"],
                 "brand": item["brand"],

@@ -240,6 +240,29 @@ def _prepare_product(product_image, max_w, max_h):
     return img
 
 
+def _add_drop_shadow(img, offset=(6, 6), blur_radius=12, opacity=60):
+    """Add a soft drop shadow behind an RGBA image."""
+    from PIL import ImageFilter
+    # Create shadow layer
+    shadow = Image.new("RGBA", (img.width + abs(offset[0]) + blur_radius * 2,
+                                 img.height + abs(offset[1]) + blur_radius * 2),
+                       (0, 0, 0, 0))
+    # Paste a dark silhouette
+    silhouette = Image.new("RGBA", img.size, (0, 0, 0, opacity))
+    # Use the alpha channel of the original as mask
+    if img.mode == "RGBA":
+        silhouette.putalpha(img.split()[3])
+    sx = blur_radius + max(offset[0], 0)
+    sy = blur_radius + max(offset[1], 0)
+    shadow.paste(silhouette, (sx, sy))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(radius=blur_radius))
+    # Paste original on top
+    ox = blur_radius + max(-offset[0], 0)
+    oy = blur_radius + max(-offset[1], 0)
+    shadow.paste(img, (ox, oy), img)
+    return shadow
+
+
 def _save_frame(canvas):
     buf = BytesIO()
     canvas.save(buf, "PNG")
@@ -258,15 +281,19 @@ def _pad_products(products, count):
 # -- Scattered collage helper -------------------------------------------------
 
 def _scatter_products(canvas, products, positions, circle_color=None):
-    """Place products at scattered (x, y, w, h) positions.
+    """Place products at scattered (x, y, w, h, rotation) positions.
 
+    Each position is (x, y, w, h) or (x, y, w, h, angle).
     Products deliberately overlap and vary in size for organic editorial feel.
+    Rotation gives scattered, editorial look to collages.
     """
     draw = ImageDraw.Draw(canvas)
     display = _pad_products(products, len(positions))
 
     for idx, prod_data in enumerate(display):
-        px, py, pw, ph = positions[idx]
+        pos = positions[idx]
+        px, py, pw, ph = pos[0], pos[1], pos[2], pos[3]
+        angle = pos[4] if len(pos) > 4 else 0
 
         if circle_color:
             cr = min(pw, ph) // 2 - 10
@@ -274,8 +301,20 @@ def _scatter_products(canvas, products, positions, circle_color=None):
             ccy = py + ph // 2
             draw.ellipse([ccx - cr, ccy - cr, ccx + cr, ccy + cr],
                          fill=hex_to_rgb(circle_color))
+            # Redraw needed after ellipse
+            draw = ImageDraw.Draw(canvas)
 
         prod_img = _prepare_product(prod_data["image"], pw - 40, ph - 40)
+
+        # Add drop shadow for depth
+        prod_img = _add_drop_shadow(prod_img, offset=(5, 5),
+                                    blur_radius=10, opacity=50)
+
+        if angle != 0:
+            # Rotate with expand so the image isn't clipped
+            prod_img = prod_img.rotate(angle, resample=Image.BICUBIC,
+                                       expand=True)
+
         img_x = px + (pw - prod_img.width) // 2
         img_y = py + (ph - prod_img.height) // 2
         paste_with_alpha(canvas, prod_img, (img_x, img_y))
@@ -285,14 +324,16 @@ def _scatter_products(canvas, products, positions, circle_color=None):
 # @AmazonHome -- Warm beige/cream with watermark pattern
 # ==============================================================================
 
-# Collage: products above and below title band, overlapping into title area
+# Collage: scattered products with rotation, varying sizes, heavy overlap
+# Format: (x, y, w, h, rotation_degrees)
 _HOME_COLLAGE_POSITIONS = [
-    (30, 20, 360, 440),       # top-left
-    (380, 0, 340, 400),       # top-center
-    (720, 40, 320, 380),      # top-right
-    (30, 920, 350, 440),      # bottom-left (overlaps into title zone)
-    (400, 900, 340, 420),     # bottom-center (overlaps)
-    (720, 960, 320, 400),     # bottom-right
+    (10, -20, 420, 520, -8),     # top-left, large, tilted left
+    (340, 30, 300, 370, 5),      # top-center, medium, slight tilt
+    (680, -40, 400, 480, 12),    # top-right, large, tilted right
+    (-20, 880, 400, 500, 6),     # bottom-left, large, overlaps title
+    (350, 920, 360, 440, -4),    # bottom-center, overlaps heavily
+    (700, 860, 380, 500, -10),   # bottom-right, tilted, overlaps
+    (500, 400, 240, 300, 15),    # mid-right small accent piece
 ]
 
 def _home_collage(products, theme_name="Just Dropped"):
@@ -366,10 +407,11 @@ def _home_individual(product_data, frame_num=1):
 # ==============================================================================
 
 _BEAUTY_COLLAGE_POSITIONS = [
-    (40, 20, 440, 520),       # top-left
-    (500, 0, 420, 500),       # top-right
-    (20, 960, 460, 540),      # bottom-left (overlaps title)
-    (480, 1000, 440, 520),    # bottom-right (overlaps)
+    (20, -10, 480, 560, -6),     # top-left, large, tilted
+    (460, 30, 500, 540, 8),      # top-right, large, tilted opposite
+    (-10, 920, 500, 580, 5),     # bottom-left, overlaps title heavily
+    (450, 960, 520, 560, -7),    # bottom-right, overlaps
+    (260, 380, 280, 320, 12),    # center accent, small, rotated
 ]
 
 def _beauty_collage(products, theme_name="Just Dropped"):
@@ -446,13 +488,14 @@ def _beauty_individual(product_data, frame_num=1):
 # @AmazonFashion -- Beige/cream, editorial layout
 # ==============================================================================
 
-# Fashion collage: products scattered editorially, overlapping with title
+# Fashion collage: editorial scattered with dramatic hero product
 _FASHION_COLLAGE_POSITIONS = [
-    (520, 10, 520, 640),      # top-right, LARGE (editorial hero)
-    (10, 20, 440, 520),       # top-left
-    (20, 1000, 500, 600),     # bottom-left (overlaps title heavily)
-    (540, 960, 500, 620),     # bottom-right (overlaps)
-    (280, 480, 420, 500),     # center (behind title)
+    (480, -30, 600, 720, -5),    # top-right, HERO size, slight tilt
+    (-20, 40, 460, 540, 7),      # top-left, medium, tilted
+    (280, 300, 300, 360, -12),   # center, small accent, behind title
+    (-30, 960, 540, 640, 8),     # bottom-left, large, overlaps title
+    (500, 900, 560, 680, -6),    # bottom-right, large, overlaps
+    (180, 1200, 280, 340, 14),   # bottom-center accent, rotated
 ]
 
 def _fashion_collage(products, theme_name="Just Dropped"):
@@ -533,14 +576,15 @@ def _fashion_individual(product_data, frame_num=1):
 # @Amazon (Main) -- Soft pastel gradients + near-invisible watermark
 # ==============================================================================
 
-# Collage: products overlapping with title band
+# Collage: scattered products with rotation across pastel gradients
 _AMAZON_COLLAGE_POSITIONS = [
-    (40, 30, 380, 460),       # top-left
-    (430, 10, 360, 440),      # top-center
-    (770, 50, 280, 380),      # top-right
-    (40, 920, 380, 460),      # bottom-left (overlaps title)
-    (420, 880, 360, 440),     # bottom-center (overlaps)
-    (740, 940, 310, 400),     # bottom-right
+    (20, -10, 420, 500, -7),     # top-left, large, tilted
+    (380, 20, 380, 460, 6),      # top-center, medium
+    (720, -30, 360, 440, 10),    # top-right, tilted right
+    (10, 880, 400, 500, 5),      # bottom-left, overlaps title
+    (380, 860, 380, 480, -8),    # bottom-center, overlaps heavily
+    (720, 900, 360, 460, 7),     # bottom-right
+    (520, 360, 260, 300, -14),   # mid-right accent, rotated
 ]
 
 def _amazon_collage(products, theme_name="Just Dropped", gradient_idx=0):
