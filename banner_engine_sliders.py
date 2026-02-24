@@ -78,7 +78,12 @@ def _build_headline_banner(w, h, cfg, lang, layout=None):
     cta_font = ImageFont.truetype(FONT_REGULAR, max(int(h * 0.24), 12))
 
     hl_zone_w = hl_r - hl_l
-    hl_txt = cfg["headline_eng"] if lang == "ENG" else cfg["headline_esp"]
+    if lang == "ENG":
+        hl_txt = cfg["headline_eng"]
+    elif lang == "FRA":
+        hl_txt = cfg.get("headline_fra", cfg.get("headline_esp", ""))
+    else:
+        hl_txt = cfg.get("headline_esp", cfg.get("headline_fra", ""))
     hl_size = max(int(h * 0.40), 16)
     while hl_size > 8:
         hl_font = ImageFont.truetype(FONT_BOLD, hl_size)
@@ -97,7 +102,12 @@ def _build_headline_banner(w, h, cfg, lang, layout=None):
     paste_with_alpha(banner, logo, (logo_x, (h - logo.height) // 2))
 
     # "New on Amazon!" + headline
-    noa_txt = "New on Amazon!" if lang == "ENG" else "\u00a1Nuevo en Amazon!"
+    if lang == "ENG":
+        noa_txt = "New on Amazon!"
+    elif lang == "FRA":
+        noa_txt = "Nouveau sur Amazon!"
+    else:
+        noa_txt = "\u00a1Nuevo en Amazon!"
     noa_bb = draw.textbbox((0, 0), noa_txt, font=noa_font)
     hl_bb = draw.textbbox((0, 0), hl_txt, font=hl_font)
     noa_h = noa_bb[3] - noa_bb[1]
@@ -119,10 +129,12 @@ def _build_headline_banner(w, h, cfg, lang, layout=None):
 
     # CTA
     draw = ImageDraw.Draw(banner)
-    cta_txt = (
-        f"Shop {cfg['brand_name']}" if lang == "ENG"
-        else f"Compra {cfg['brand_name']}"
-    )
+    if lang == "ENG":
+        cta_txt = f"Shop {cfg['brand_name']}"
+    elif lang == "FRA":
+        cta_txt = f"Magasiner {cfg['brand_name']}"
+    else:
+        cta_txt = f"Compra {cfg['brand_name']}"
     cta_bb = draw.textbbox((0, 0), cta_txt, font=cta_font)
     cw = cta_bb[2] - cta_bb[0]
     ch = cta_bb[3] - cta_bb[1]
@@ -181,10 +193,12 @@ def _build_compact_banner(w, h, cfg, lang, layout=None):
 
     # CTA
     draw = ImageDraw.Draw(banner)
-    cta_txt = (
-        f"Shop {cfg['brand_name']}" if lang == "ENG"
-        else f"Compra {cfg['brand_name']}"
-    )
+    if lang == "ENG":
+        cta_txt = f"Shop {cfg['brand_name']}"
+    elif lang == "FRA":
+        cta_txt = f"Magasiner {cfg['brand_name']}"
+    else:
+        cta_txt = f"Compra {cfg['brand_name']}"
     cta_bb = draw.textbbox((0, 0), cta_txt, font=cta_font)
     cw = cta_bb[2] - cta_bb[0]
     ch = cta_bb[3] - cta_bb[1]
@@ -234,7 +248,8 @@ def generate_all(cfg, region="US", hl_layout=None, compact_layout=None):
     hqp_buf.seek(0)
     results.append((hqp_name, hqp_buf))
 
-    for lang in ("ENG", "ESP"):
+    languages = ("ENG", "FRA") if region == "CA" else ("ENG", "ESP")
+    for lang in languages:
         for w, h, has_hl in LARGE_SIZES:
             if has_hl:
                 banner = _build_headline_banner(w, h, cfg, lang, layout=hl_layout)

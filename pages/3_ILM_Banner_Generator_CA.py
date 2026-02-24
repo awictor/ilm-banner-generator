@@ -29,7 +29,7 @@ with right:
     brand_name = st.text_input("Brand name", placeholder="e.g. OC Integrative Medicine", key="ca_brand_name")
     brand_abbrev = st.text_input("Brand abbreviation", placeholder="e.g. OCIM", key="ca_brand_abbrev")
     headline_eng = st.text_input("English headline", placeholder="e.g. Motility Activator by Dr. Rajsree", key="ca_headline_eng")
-    headline_esp = st.text_input("Spanish headline", placeholder="e.g. Activador de la motilidad de Dr. Rajsree", key="ca_headline_esp")
+    headline_fra = st.text_input("French headline", placeholder="e.g. Activateur de la motilite par Dr. Rajsree", key="ca_headline_fra")
     bg_color = st.color_picker("Background color", value="#d9f69e", key="ca_bg_color")
 
 st.divider()
@@ -40,7 +40,7 @@ ready = (logo_img is not None
          and brand_name
          and brand_abbrev
          and headline_eng
-         and headline_esp)
+         and headline_fra)
 
 if st.button("Generate Banners", type="primary", disabled=not ready, key="ca_generate"):
     cfg = {
@@ -49,7 +49,7 @@ if st.button("Generate Banners", type="primary", disabled=not ready, key="ca_gen
         "logo_image": logo_img,
         "product_image": product_img,
         "headline_eng": headline_eng,
-        "headline_esp": headline_esp,
+        "headline_fra": headline_fra,
         "bg_color_hex": bg_color,
     }
 

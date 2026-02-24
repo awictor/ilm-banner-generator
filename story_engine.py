@@ -1,13 +1,13 @@
 """
-Instagram Story Frame Generator – engine module
+Instagram Story Frame Generator -- engine module
 
 Generates 1080x1920px story frames for 5 Amazon channels:
   @AmazonHome, @AmazonBeauty, @AmazonFashion, @Amazon, @Amazon.ca
 
-Each channel has a distinct visual style with collage and individual layouts.
-Frame structure per franchise (10-12 frames):
-  Frame 1:    Collage (product selection + "Just Dropped" title)
-  Frames 2-N: Individual product frames (1 per ASIN)
+Each channel has a distinct visual style matching the reference mockups.
+Frame structure per franchise:
+  Frame 1:    Collage (scattered products + "Just Dropped" title)
+  Frames 2-N: Individual product frames (annotation + product + copy + CTA)
   Last frame: Duplicate of Frame 1
 """
 
@@ -20,7 +20,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from banner_engine import hex_to_rgb, remove_white_bg, trim_transparent, fit_image, paste_with_alpha
 
-# ── Constants ────────────────────────────────────────────────────
+# -- Constants ----------------------------------------------------------------
 W, H = 1080, 1920  # Instagram story dimensions
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -53,7 +53,7 @@ PALETTE = {
     },
     "@AmazonBeauty": {
         "bg": "#D4EFE0",
-        "bg_individual": "#F5F8F6",  # white-ish for individual frames
+        "bg_individual": "#F5F8F6",
         "circle": "#C8EDDA",
         "text": "#3A3A3A",
         "accent": "#4A8B6F",
@@ -67,6 +67,15 @@ PALETTE = {
         "bg": "#F5E6DC",
         "text": "#3A3A3A",
         "accent": "#6B5B73",
+        # Per-gradient watermark colors (barely visible, near-bg tint)
+        "gradient_watermarks": [
+            "#F0DDD4",  # peachy pink
+            "#DDD6E8",  # lavender
+            "#F5ECCC",  # yellow
+            "#CCDCEB",  # blue
+            "#CBE5D6",  # mint
+            "#EBE7DE",  # beige
+        ],
         "gradients": [
             ("#F5E6DC", "#F0D4C8"),  # peachy pink
             ("#E8E0F0", "#D8CCE8"),  # lavender
@@ -80,6 +89,14 @@ PALETTE = {
         "bg": "#F5E6DC",
         "text": "#3A3A3A",
         "accent": "#6B5B73",
+        "gradient_watermarks": [
+            "#F0DDD4",
+            "#DDD6E8",
+            "#F5ECCC",
+            "#CCDCEB",
+            "#CBE5D6",
+            "#EBE7DE",
+        ],
         "gradients": [
             ("#F5E6DC", "#F0D4C8"),
             ("#E8E0F0", "#D8CCE8"),
@@ -96,10 +113,9 @@ def _current_month():
     return datetime.now().strftime("%B").lower()
 
 
-# ── Drawing helpers ──────────────────────────────────────────────
+# -- Drawing helpers ----------------------------------------------------------
 
 def _make_gradient(w, h, color_top, color_bottom):
-    """Create a vertical linear gradient image (vectorized with NumPy)."""
     top = np.array(hex_to_rgb(color_top), dtype=np.float32)
     bot = np.array(hex_to_rgb(color_bottom), dtype=np.float32)
     t = np.linspace(0.0, 1.0, h, dtype=np.float32).reshape(h, 1, 1)
@@ -108,29 +124,8 @@ def _make_gradient(w, h, color_top, color_bottom):
     return Image.fromarray(arr, "RGB")
 
 
-def _make_circle_gradient(w, h, center_color, edge_color):
-    """Create a radial/circular gradient image (vectorized with NumPy)."""
-    center = np.array(hex_to_rgb(center_color), dtype=np.float32)
-    edge = np.array(hex_to_rgb(edge_color), dtype=np.float32)
-    cx, cy = w / 2.0, h / 2.0
-    max_r = np.sqrt(cx ** 2 + cy ** 2)
-    ys = np.arange(h, dtype=np.float32) - cy
-    xs = np.arange(w, dtype=np.float32) - cx
-    dist = np.sqrt(xs[np.newaxis, :] ** 2 + ys[:, np.newaxis] ** 2)
-    t = np.clip(dist / max_r, 0.0, 1.0)[:, :, np.newaxis]
-    arr = (center + (edge - center) * t).astype(np.uint8)
-    return Image.fromarray(arr, "RGB")
-
-
 def _draw_text_block(draw, text, x, y, font, color, max_width=None, align="left",
                      line_spacing=8, max_lines=0):
-    """Draw text, wrapping if max_width is provided. Returns total height used.
-
-    Args:
-        line_spacing: Vertical gap between lines (default 8, preserves old behavior).
-        max_lines: Max number of lines to render (0 = unlimited). Last visible
-                   line is truncated with "\u2026" if the text overflows.
-    """
     if not max_width:
         draw.text((x, y), text, font=font, fill=color)
         bb = draw.textbbox((x, y), text, font=font)
@@ -151,15 +146,14 @@ def _draw_text_block(draw, text, x, y, font, color, max_width=None, align="left"
     if current_line:
         lines.append(current_line)
 
-    # Truncate to max_lines with ellipsis on the last visible line
     if max_lines > 0 and len(lines) > max_lines:
         last = lines[max_lines - 1]
         while last:
-            candidate = last + "\u2026"
+            candidate = last + "..."
             if draw.textbbox((0, 0), candidate, font=font)[2] <= max_width:
                 break
             last = last.rsplit(" ", 1)[0] if " " in last else last[:-1]
-        lines = lines[:max_lines - 1] + [last + "\u2026"]
+        lines = lines[:max_lines - 1] + [last + "..."]
 
     total_h = 0
     for line in lines:
@@ -178,28 +172,68 @@ def _draw_text_block(draw, text, x, y, font, color, max_width=None, align="left"
 
 
 def _draw_handwritten(draw, text, x, y, color, size=28):
-    """Draw text in italic to simulate handwritten annotation style."""
     font = ImageFont.truetype(FONT_DISPLAY_ITALIC, size)
     draw.text((x, y), text, font=font, fill=color)
     bb = draw.textbbox((x, y), text, font=font)
-    return bb[2] - bb[0], bb[3] - bb[1]  # width, height
+    return bb[2] - bb[0], bb[3] - bb[1]
 
 
-def _draw_watermark_pattern(draw, text, color, font_size=48, spacing_x=320, spacing_y=100):
-    """Tile repeated watermark text across the entire canvas at an angle."""
+def _draw_watermark_pattern(draw, text, color, font_size=42, spacing_x=360, spacing_y=90):
     font = ImageFont.truetype(FONT_DISPLAY_BOLD, font_size)
-    # Draw with rotation by rendering on a larger temporary image is complex,
-    # so we tile horizontally with slight vertical offset per row for a diagonal feel
     for row in range(-2, H // spacing_y + 2):
-        offset_x = (row % 2) * (spacing_x // 2)  # stagger every other row
+        offset_x = (row % 2) * (spacing_x // 2)
         for col in range(-1, W // spacing_x + 2):
             tx = col * spacing_x + offset_x
             ty = row * spacing_y
             draw.text((tx, ty), text, font=font, fill=color)
 
 
+def _draw_cta_link(canvas, product_name, accent_color, y_pos):
+    """Draw 'SHOP [PRODUCT]' CTA with link icon, centered."""
+    draw = ImageDraw.Draw(canvas)
+    cta_font = ImageFont.truetype(FONT_TEXT_BOLD, 22)
+    cta_text = f"SHOP {product_name.upper()}"
+
+    cta_bb = draw.textbbox((0, 0), cta_text, font=cta_font)
+    cta_w = cta_bb[2] - cta_bb[0]
+    icon_size = 20
+    total_w = icon_size + 10 + cta_w
+    start_x = (W - total_w) // 2
+
+    # Circle with arrow icon
+    cx = start_x + icon_size // 2
+    cy = y_pos + icon_size // 2
+    draw.ellipse([cx - 9, cy - 9, cx + 9, cy + 9], outline=accent_color, width=2)
+    draw.line([(cx - 3, cy + 3), (cx + 4, cy - 4)], fill=accent_color, width=2)
+    draw.line([(cx + 4, cy - 4), (cx - 1, cy - 4)], fill=accent_color, width=2)
+    draw.line([(cx + 4, cy - 4), (cx + 4, cy + 1)], fill=accent_color, width=2)
+
+    draw.text((start_x + icon_size + 10, y_pos - 2), cta_text,
+              font=cta_font, fill=accent_color)
+
+
+def _draw_benefit_and_cta(canvas, copy_text, product_name, text_color, accent_color, y_start):
+    """Benefit copy (regular weight, centered) + CTA link below."""
+    draw = ImageDraw.Draw(canvas)
+
+    # Benefit copy: REGULAR weight (not bold), centered, smaller size
+    if copy_text:
+        copy_font = ImageFont.truetype(FONT_TEXT_REGULAR, 28)
+        copy_h = _draw_text_block(
+            draw, copy_text, 80, y_start,
+            copy_font, text_color,
+            max_width=W - 160, align="center",
+            line_spacing=10, max_lines=2,
+        )
+    else:
+        copy_h = 0
+
+    cta_y = y_start + copy_h + 40
+    if product_name:
+        _draw_cta_link(canvas, product_name, accent_color, cta_y)
+
+
 def _prepare_product(product_image, max_w, max_h):
-    """Prepare product image: convert, trim, fit."""
     img = product_image.convert("RGBA")
     img = trim_transparent(img)
     img = fit_image(img, max_w, max_h)
@@ -207,7 +241,6 @@ def _prepare_product(product_image, max_w, max_h):
 
 
 def _save_frame(canvas):
-    """Save canvas to BytesIO as PNG."""
     buf = BytesIO()
     canvas.save(buf, "PNG")
     buf.seek(0)
@@ -215,7 +248,6 @@ def _save_frame(canvas):
 
 
 def _pad_products(products, count):
-    """Repeat products list to fill at least `count` items."""
     if not products:
         return []
     if len(products) >= count:
@@ -223,207 +255,233 @@ def _pad_products(products, count):
     return (products * ((count // len(products)) + 1))[:count]
 
 
-# ── New shared layout helpers ────────────────────────────────────
+# -- Scattered collage helper -------------------------------------------------
 
-def _draw_benefit_copy(canvas, text, y_start):
-    """Render benefit copy on individual frames.
+def _scatter_products(canvas, products, positions, circle_color=None):
+    """Place products at scattered (x, y, w, h) positions.
 
-    FONT_TEXT_BOLD 42pt, #3A3A3A, left-aligned x=40, line_spacing=17, max 3 lines.
+    Products deliberately overlap and vary in size for organic editorial feel.
     """
-    if not text:
-        return
     draw = ImageDraw.Draw(canvas)
-    font = ImageFont.truetype(FONT_TEXT_BOLD, 42)
-    color = hex_to_rgb("#3A3A3A")
-    _draw_text_block(draw, text, 40, y_start, font, color,
-                     max_width=W - 80, align="left",
-                     line_spacing=17, max_lines=3)
-
-
-def _draw_collage_grid(canvas, products, grid_origin_x, grid_origin_y,
-                       cols, rows, cell_w=None, cell_h=None,
-                       gap_x=20, gap_y=20, circle_color=None):
-    """Organized product grid replacing random scattering.
-
-    Lays out products in a *cols* x *rows* grid starting at
-    (grid_origin_x, grid_origin_y).  Optional *circle_color* (hex)
-    draws a circle behind each product (Beauty channel motif).
-    """
-    if cell_w is None:
-        cell_w = (W - 2 * grid_origin_x - (cols - 1) * gap_x) // cols
-    if cell_h is None:
-        cell_h = (H - grid_origin_y - 60 - (rows - 1) * gap_y) // rows
-
-    draw = ImageDraw.Draw(canvas)
-    display = _pad_products(products, cols * rows)
+    display = _pad_products(products, len(positions))
 
     for idx, prod_data in enumerate(display):
-        col = idx % cols
-        row = idx // cols
-        if row >= rows:
-            break
-        cx = grid_origin_x + col * (cell_w + gap_x)
-        cy = grid_origin_y + row * (cell_h + gap_y)
+        px, py, pw, ph = positions[idx]
 
         if circle_color:
-            cr = min(cell_w, cell_h) // 2 - 10
-            ccx = cx + cell_w // 2
-            ccy = cy + cell_h // 2
+            cr = min(pw, ph) // 2 - 10
+            ccx = px + pw // 2
+            ccy = py + ph // 2
             draw.ellipse([ccx - cr, ccy - cr, ccx + cr, ccy + cr],
                          fill=hex_to_rgb(circle_color))
 
-        prod_img = _prepare_product(prod_data["image"],
-                                    cell_w - 40, cell_h - 40)
-        img_x = cx + (cell_w - prod_img.width) // 2
-        img_y = cy + (cell_h - prod_img.height) // 2
+        prod_img = _prepare_product(prod_data["image"], pw - 40, ph - 40)
+        img_x = px + (pw - prod_img.width) // 2
+        img_y = py + (ph - prod_img.height) // 2
         paste_with_alpha(canvas, prod_img, (img_x, img_y))
 
 
-def _draw_collage_header(canvas, theme_name, month_text, text_color, accent_color):
-    """Month label italic + theme title bold, left-aligned x=60."""
-    draw = ImageDraw.Draw(canvas)
-    month_font = ImageFont.truetype(FONT_DISPLAY_ITALIC, 30)
-    title_font = ImageFont.truetype(FONT_DISPLAY_BOLD, 80)
+# ==============================================================================
+# @AmazonHome -- Warm beige/cream with watermark pattern
+# ==============================================================================
 
-    draw.text((60, 80), f"{month_text}.", font=month_font,
-              fill=hex_to_rgb(accent_color))
-    draw.text((60, 120), theme_name, font=title_font,
-              fill=hex_to_rgb(text_color))
-
-
-# ══════════════════════════════════════════════════════════════════
-# @AmazonHome – Warm beige/cream with watermark pattern
-# ══════════════════════════════════════════════════════════════════
+# Collage: products above and below title band, overlapping into title area
+_HOME_COLLAGE_POSITIONS = [
+    (30, 20, 360, 440),       # top-left
+    (380, 0, 340, 400),       # top-center
+    (720, 40, 320, 380),      # top-right
+    (30, 920, 350, 440),      # bottom-left (overlaps into title zone)
+    (400, 900, 340, 420),     # bottom-center (overlaps)
+    (720, 960, 320, 400),     # bottom-right
+]
 
 def _home_collage(products, theme_name="Just Dropped"):
-    """
-    @AmazonHome collage frame.
-    Subtle watermark pattern, campaign header, organized 2x2 product grid.
-    """
     pal = PALETTE["@AmazonHome"]
     bg = hex_to_rgb(pal["bg"])
     wm_color = hex_to_rgb(pal["watermark"])
-
-    canvas = Image.new("RGB", (W, H), bg)
-    draw = ImageDraw.Draw(canvas)
-
-    # Subtle watermark pattern (collage only)
-    _draw_watermark_pattern(draw, "JUST DROPPED", wm_color, font_size=42,
-                            spacing_x=360, spacing_y=90)
-
-    # Campaign branding header
-    _draw_collage_header(canvas, theme_name, _current_month(),
-                         pal["text"], pal["accent"])
-
-    # Organized 2x2 product grid
-    _draw_collage_grid(canvas, products,
-                       grid_origin_x=60, grid_origin_y=260,
-                       cols=2, rows=2, gap_x=30, gap_y=30)
-
-    return canvas
-
-
-def _home_individual(product_data, frame_num=1):
-    """
-    @AmazonHome individual frame.
-    Clean #E8E6E0 bg, product in top 60%, benefit copy in bottom 40%.
-    No watermark, no handwritten annotations.
-    """
-    pal = PALETTE["@AmazonHome"]
-    bg = hex_to_rgb(pal["bg"])
-
-    canvas = Image.new("RGB", (W, H), bg)
-
-    # Top 60 %: product zone (y=0..1152)
-    prod_img = _prepare_product(product_data["image"], 600, 900)
-    px = (W - prod_img.width) // 2
-    py = (1152 - prod_img.height) // 2
-    paste_with_alpha(canvas, prod_img, (px, py))
-
-    # Bottom 40 %: copy zone (y=1152+)
-    _draw_benefit_copy(canvas, product_data.get("copy", ""), y_start=1192)
-
-    return canvas
-
-
-# ══════════════════════════════════════════════════════════════════
-# @AmazonBeauty – Mint green with prominent circles
-# ══════════════════════════════════════════════════════════════════
-
-def _beauty_collage(products, theme_name="Just Dropped"):
-    """
-    @AmazonBeauty collage frame.
-    Mint bg, campaign header, subtitle, organized 2x2 grid with mint circles.
-    """
-    pal = PALETTE["@AmazonBeauty"]
-    bg = hex_to_rgb(pal["bg"])
+    txt_color = hex_to_rgb(pal["text"])
     accent = hex_to_rgb(pal["accent"])
 
     canvas = Image.new("RGB", (W, H), bg)
     draw = ImageDraw.Draw(canvas)
 
-    # Campaign branding header
-    _draw_collage_header(canvas, theme_name, _current_month(),
-                         pal["text"], pal["accent"])
+    # Watermark pattern
+    _draw_watermark_pattern(draw, "JUST DROPPED", wm_color)
 
-    # Subtitle below header
+    # Scattered products (some overlap into title area for organic feel)
+    _scatter_products(canvas, products, _HOME_COLLAGE_POSITIONS)
+
+    # Title block in center band -- drawn OVER products for layering
+    draw = ImageDraw.Draw(canvas)
+    month_font = ImageFont.truetype(FONT_DISPLAY_ITALIC, 30)
+    title_font = ImageFont.truetype(FONT_DISPLAY_BOLD, 80)
+
+    draw.text((80, 680), _current_month(), font=month_font, fill=accent)
+    draw.text((80, 720), theme_name, font=title_font, fill=txt_color)
+
+    return canvas
+
+
+def _home_individual(product_data, frame_num=1):
+    pal = PALETTE["@AmazonHome"]
+    bg = hex_to_rgb(pal["bg"])
+    wm_color = hex_to_rgb(pal["watermark"])
+    txt_color = hex_to_rgb(pal["text"])
+    accent = hex_to_rgb(pal["accent"])
+
+    canvas = Image.new("RGB", (W, H), bg)
+    draw = ImageDraw.Draw(canvas)
+
+    # Subtle watermark
+    _draw_watermark_pattern(draw, "JUST DROPPED", wm_color)
+
+    # Handwritten annotation -- asymmetric positioning
+    if product_data.get("copy"):
+        annotation = product_data["copy"][:40]
+        aw, _ = _draw_handwritten(draw, annotation, 0, 0, accent, size=24)
+        # Offset slightly right of center for editorial feel
+        ax = (W - aw) // 2 + 40
+        ax = max(40, min(ax, W - aw - 40))
+        _draw_handwritten(draw, annotation, ax, 260, accent, size=24)
+
+    # Product centered in upper zone
+    prod_img = _prepare_product(product_data["image"], 620, 820)
+    px = (W - prod_img.width) // 2
+    py = 360
+    paste_with_alpha(canvas, prod_img, (px, py))
+
+    # Benefit copy + CTA
+    copy_y = py + prod_img.height + 50
+    _draw_benefit_and_cta(
+        canvas, product_data.get("copy", ""),
+        product_data.get("product_name", ""),
+        txt_color, accent, copy_y,
+    )
+
+    return canvas
+
+
+# ==============================================================================
+# @AmazonBeauty -- Mint green with prominent circles
+# ==============================================================================
+
+_BEAUTY_COLLAGE_POSITIONS = [
+    (40, 20, 440, 520),       # top-left
+    (500, 0, 420, 500),       # top-right
+    (20, 960, 460, 540),      # bottom-left (overlaps title)
+    (480, 1000, 440, 520),    # bottom-right (overlaps)
+]
+
+def _beauty_collage(products, theme_name="Just Dropped"):
+    pal = PALETTE["@AmazonBeauty"]
+    bg = hex_to_rgb(pal["bg"])
+    txt_color = hex_to_rgb(pal["text"])
+    accent = hex_to_rgb(pal["accent"])
+
+    canvas = Image.new("RGB", (W, H), bg)
+
+    # Scattered products with mint circles -- behind title
+    _scatter_products(canvas, products, _BEAUTY_COLLAGE_POSITIONS,
+                      circle_color=pal["circle"])
+
+    # Title block in center band -- OVER products
+    draw = ImageDraw.Draw(canvas)
+    month_font = ImageFont.truetype(FONT_DISPLAY_ITALIC, 30)
+    title_font = ImageFont.truetype(FONT_DISPLAY_BOLD, 78)
     sub_font = ImageFont.truetype(FONT_TEXT_REGULAR, 28)
-    draw.text((60, 220), "new beauty finds to add to cart",
-              font=sub_font, fill=accent)
 
-    # Organized 2x2 grid with mint circle motif
-    _draw_collage_grid(canvas, products,
-                       grid_origin_x=60, grid_origin_y=300,
-                       cols=2, rows=2, gap_x=30, gap_y=30,
-                       circle_color=pal["circle"])
+    draw.text((80, 660), _current_month(), font=month_font, fill=accent)
+    draw.text((80, 700), theme_name, font=title_font, fill=txt_color)
+    draw.text((80, 800), "new beauty finds to add to cart",
+              font=sub_font, fill=accent)
 
     return canvas
 
 
 def _beauty_individual(product_data, frame_num=1):
-    """
-    @AmazonBeauty individual frame.
-    Light bg, mint circle repositioned to top zone (cy=576),
-    product in top 60%, benefit copy in bottom 40%.
-    No handwritten annotations.
-    """
     pal = PALETTE["@AmazonBeauty"]
     bg = hex_to_rgb(pal["bg_individual"])
+    txt_color = hex_to_rgb(pal["text"])
+    accent = hex_to_rgb(pal["accent"])
     circle_color = hex_to_rgb(pal["circle"])
 
     canvas = Image.new("RGB", (W, H), bg)
     draw = ImageDraw.Draw(canvas)
 
-    # Mint circle – centered in top zone
+    # Large mint circle behind product
     circle_r = 380
-    circle_cx, circle_cy = W // 2, 576
+    circle_cx, circle_cy = W // 2, 680
     draw.ellipse(
         [circle_cx - circle_r, circle_cy - circle_r,
          circle_cx + circle_r, circle_cy + circle_r],
         fill=circle_color
     )
 
-    # Top 60 %: product zone (y=0..1152)
-    prod_img = _prepare_product(product_data["image"], 600, 900)
+    # Handwritten annotation -- offset from center
+    if product_data.get("copy"):
+        annotation = product_data["copy"][:35]
+        aw, _ = _draw_handwritten(draw, annotation, 0, 0, accent, size=24)
+        ax = (W - aw) // 2 - 30
+        ax = max(40, min(ax, W - aw - 40))
+        _draw_handwritten(draw, annotation, ax, 250, accent, size=24)
+
+    # Product on the circle
+    prod_img = _prepare_product(product_data["image"], 580, 720)
     px = (W - prod_img.width) // 2
-    py = (1152 - prod_img.height) // 2
+    py = circle_cy - prod_img.height // 2 - 20
     paste_with_alpha(canvas, prod_img, (px, py))
 
-    # Bottom 40 %: copy zone (y=1152+)
-    _draw_benefit_copy(canvas, product_data.get("copy", ""), y_start=1192)
+    # Benefit copy + CTA below circle
+    copy_y = circle_cy + circle_r + 40
+    _draw_benefit_and_cta(
+        canvas, product_data.get("copy", ""),
+        product_data.get("product_name", ""),
+        txt_color, accent, copy_y,
+    )
 
     return canvas
 
 
-# ══════════════════════════════════════════════════════════════════
-# @AmazonFashion – Beige/cream, editorial layout
-# ══════════════════════════════════════════════════════════════════
+# ==============================================================================
+# @AmazonFashion -- Beige/cream, editorial layout
+# ==============================================================================
+
+# Fashion collage: products scattered editorially, overlapping with title
+_FASHION_COLLAGE_POSITIONS = [
+    (520, 10, 520, 640),      # top-right, LARGE (editorial hero)
+    (10, 20, 440, 520),       # top-left
+    (20, 1000, 500, 600),     # bottom-left (overlaps title heavily)
+    (540, 960, 500, 620),     # bottom-right (overlaps)
+    (280, 480, 420, 500),     # center (behind title)
+]
 
 def _fashion_collage(products, theme_name="Just Dropped"):
-    """
-    @AmazonFashion collage frame.
-    Stacked "JUST/DROPPED" editorial title, subtitle, organized 2x2 grid.
-    """
+    pal = PALETTE["@AmazonFashion"]
+    bg = hex_to_rgb(pal["bg"])
+    txt_color = hex_to_rgb(pal["text"])
+    accent = hex_to_rgb(pal["accent"])
+
+    canvas = Image.new("RGB", (W, H), bg)
+
+    # Products BEHIND title -- editorial overlap
+    _scatter_products(canvas, products, _FASHION_COLLAGE_POSITIONS)
+
+    # Stacked editorial title OVER products
+    draw = ImageDraw.Draw(canvas)
+    title_font = ImageFont.truetype(FONT_DISPLAY_BOLD, 90)
+    sub_font = ImageFont.truetype(FONT_TEXT_REGULAR, 22)
+
+    draw.text((55, 680), "JUST", font=title_font, fill=txt_color)
+    draw.text((55, 780), "DROPPED", font=title_font, fill=txt_color)
+    draw.text((60, 890), "DISCOVER MORE MUST-HAVES", font=sub_font, fill=accent)
+
+    # Fashion collage has CTA (per reference)
+    _draw_cta_link(canvas, "AMAZON FASHION", accent, 940)
+
+    return canvas
+
+
+def _fashion_individual(product_data, frame_num=1):
     pal = PALETTE["@AmazonFashion"]
     bg = hex_to_rgb(pal["bg"])
     txt_color = hex_to_rgb(pal["text"])
@@ -432,159 +490,245 @@ def _fashion_collage(products, theme_name="Just Dropped"):
     canvas = Image.new("RGB", (W, H), bg)
     draw = ImageDraw.Draw(canvas)
 
-    # Stacked editorial title
-    title_font = ImageFont.truetype(FONT_DISPLAY_BOLD, 90)
-    sub_font = ImageFont.truetype(FONT_TEXT_REGULAR, 22)
-
-    draw.text((55, 70), "JUST", font=title_font, fill=txt_color)
-    draw.text((55, 170), "DROPPED", font=title_font, fill=txt_color)
-    draw.text((60, 280), "DISCOVER MORE MUST-HAVES", font=sub_font, fill=accent)
-
-    # Organized 2x2 product grid below title
-    _draw_collage_grid(canvas, products,
-                       grid_origin_x=60, grid_origin_y=360,
-                       cols=2, rows=2, gap_x=30, gap_y=30)
-
-    return canvas
-
-
-def _fashion_individual(product_data, frame_num=1):
-    """
-    @AmazonFashion individual frame.
-    Slightly larger product (650x950) for editorial feel,
-    product in top 60%, benefit copy in bottom 40%.
-    No handwritten annotations.
-    """
-    pal = PALETTE["@AmazonFashion"]
-    bg = hex_to_rgb(pal["bg"])
-
-    canvas = Image.new("RGB", (W, H), bg)
-
-    # Top 60 %: product zone – slightly larger for editorial feel
-    prod_img = _prepare_product(product_data["image"], 650, 950)
+    # Product -- EXTRA LARGE for fashion editorial feel
+    prod_img = _prepare_product(product_data["image"], 860, 1100)
     px = (W - prod_img.width) // 2
-    py = (1152 - prod_img.height) // 2
+    py = 200
     paste_with_alpha(canvas, prod_img, (px, py))
 
-    # Bottom 40 %: copy zone (y=1152+)
-    _draw_benefit_copy(canvas, product_data.get("copy", ""), y_start=1192)
+    # Scattered handwritten annotations at different positions around product
+    if product_data.get("copy"):
+        words = product_data["copy"].split()
+        if len(words) > 4:
+            chunk1 = " ".join(words[:3])
+            chunk2 = " ".join(words[3:6])
+        else:
+            chunk1 = product_data["copy"][:30]
+            chunk2 = None
+
+        # Top-right annotation (asymmetric, editorial)
+        sx = min(px + prod_img.width + 10, W - 260)
+        sy = max(py - 30, 150)
+        sx = max(30, min(sx, W - 260))
+        _draw_handwritten(draw, chunk1, sx, sy, accent, size=22)
+
+        # Left-side annotation lower down
+        if chunk2:
+            sx2 = max(px - 180, 30)
+            sy2 = py + int(prod_img.height * 0.4)
+            _draw_handwritten(draw, chunk2, sx2, sy2, accent, size=22)
+
+    # Benefit copy + CTA below product
+    copy_y = py + prod_img.height + 40
+    _draw_benefit_and_cta(
+        canvas, product_data.get("copy", ""),
+        product_data.get("product_name", ""),
+        txt_color, accent, copy_y,
+    )
 
     return canvas
 
 
-# ══════════════════════════════════════════════════════════════════
-# @Amazon (Main) – Soft pastel gradients
-# ══════════════════════════════════════════════════════════════════
+# ==============================================================================
+# @Amazon (Main) -- Soft pastel gradients + near-invisible watermark
+# ==============================================================================
+
+# Collage: products overlapping with title band
+_AMAZON_COLLAGE_POSITIONS = [
+    (40, 30, 380, 460),       # top-left
+    (430, 10, 360, 440),      # top-center
+    (770, 50, 280, 380),      # top-right
+    (40, 920, 380, 460),      # bottom-left (overlaps title)
+    (420, 880, 360, 440),     # bottom-center (overlaps)
+    (740, 940, 310, 400),     # bottom-right
+]
 
 def _amazon_collage(products, theme_name="Just Dropped", gradient_idx=0):
-    """
-    @Amazon collage frame.
-    Pastel gradient bg, campaign header, organized 2x2 grid.
-    """
     pal = PALETTE["@Amazon"]
     gradients = pal["gradients"]
     g = gradients[gradient_idx % len(gradients)]
 
     canvas = _make_gradient(W, H, g[0], g[1])
+    draw = ImageDraw.Draw(canvas)
 
-    # Campaign branding header
-    _draw_collage_header(canvas, theme_name, _current_month(),
-                         pal["text"], pal["accent"])
+    # Watermark -- use gradient-matched color (barely visible)
+    wm_colors = pal["gradient_watermarks"]
+    wm_color = hex_to_rgb(wm_colors[gradient_idx % len(wm_colors)])
+    _draw_watermark_pattern(draw, "JUST DROPPED", wm_color)
 
-    # Organized 2x2 product grid
-    _draw_collage_grid(canvas, products,
-                       grid_origin_x=60, grid_origin_y=260,
-                       cols=2, rows=2, gap_x=30, gap_y=30)
+    # Scattered products -- overlap into title zone
+    _scatter_products(canvas, products, _AMAZON_COLLAGE_POSITIONS)
+
+    # Title OVER products
+    draw = ImageDraw.Draw(canvas)
+    txt_color = hex_to_rgb(pal["text"])
+    accent = hex_to_rgb(pal["accent"])
+    month_font = ImageFont.truetype(FONT_DISPLAY_ITALIC, 28)
+    title_font = ImageFont.truetype(FONT_DISPLAY_BOLD, 78)
+
+    draw.text((80, 680), _current_month(), font=month_font, fill=accent)
+    draw.text((80, 720), theme_name, font=title_font, fill=txt_color)
 
     return canvas
 
 
 def _amazon_individual(product_data, frame_num=1, gradient_idx=0):
-    """
-    @Amazon individual frame.
-    Cycling pastel gradients, product in top 60%, benefit copy in bottom 40%.
-    No handwritten annotations.
-    """
     pal = PALETTE["@Amazon"]
     gradients = pal["gradients"]
     g = gradients[gradient_idx % len(gradients)]
 
     canvas = _make_gradient(W, H, g[0], g[1])
+    draw = ImageDraw.Draw(canvas)
 
-    # Top 60 %: product zone (y=0..1152)
-    prod_img = _prepare_product(product_data["image"], 600, 900)
+    # Watermark -- gradient-matched color (barely visible per reference)
+    wm_colors = pal["gradient_watermarks"]
+    wm_color = hex_to_rgb(wm_colors[gradient_idx % len(wm_colors)])
+    _draw_watermark_pattern(draw, "JUST DROPPED", wm_color)
+
+    txt_color = hex_to_rgb(pal["text"])
+    accent = hex_to_rgb(pal["accent"])
+
+    # Handwritten annotation -- offset from center
+    if product_data.get("copy"):
+        annotation = product_data["copy"][:35]
+        aw, _ = _draw_handwritten(draw, annotation, 0, 0, accent, size=24)
+        ax = (W - aw) // 2 + 30
+        ax = max(40, min(ax, W - aw - 40))
+        _draw_handwritten(draw, annotation, ax, 270, accent, size=24)
+
+    # Product centered
+    prod_img = _prepare_product(product_data["image"], 620, 820)
     px = (W - prod_img.width) // 2
-    py = (1152 - prod_img.height) // 2
+    py = 370
     paste_with_alpha(canvas, prod_img, (px, py))
 
-    # Bottom 40 %: copy zone (y=1152+)
-    _draw_benefit_copy(canvas, product_data.get("copy", ""), y_start=1192)
+    # Benefit copy + CTA
+    copy_y = py + prod_img.height + 50
+    _draw_benefit_and_cta(
+        canvas, product_data.get("copy", ""),
+        product_data.get("product_name", ""),
+        txt_color, accent, copy_y,
+    )
 
     return canvas
 
 
-# ══════════════════════════════════════════════════════════════════
-# @Amazon.ca – Same as @Amazon but with Canadian spelling + French
-# ══════════════════════════════════════════════════════════════════
+# ==============================================================================
+# @Amazon.ca -- Same as @Amazon but with French support
+# ==============================================================================
+
+_FR_MONTHS = {
+    "january": "janvier", "february": "fevrier", "march": "mars",
+    "april": "avril", "may": "mai", "june": "juin", "july": "juillet",
+    "august": "aout", "september": "septembre", "october": "octobre",
+    "november": "novembre", "december": "decembre",
+}
 
 def _ca_collage(products, theme_name="Just Dropped", lang="en", gradient_idx=0):
-    """@Amazon.ca collage: gradient bg, campaign header, organized grid.
-    Supports French title and month label."""
     pal = PALETTE["@Amazon.ca"]
     gradients = pal["gradients"]
     g = gradients[gradient_idx % len(gradients)]
 
     canvas = _make_gradient(W, H, g[0], g[1])
+    draw = ImageDraw.Draw(canvas)
 
-    # Resolve month (French when needed)
+    # Watermark
+    wm_colors = pal["gradient_watermarks"]
+    wm_color = hex_to_rgb(wm_colors[gradient_idx % len(wm_colors)])
+    _draw_watermark_pattern(draw, "JUST DROPPED", wm_color)
+
+    # Scattered products
+    _scatter_products(canvas, products, _AMAZON_COLLAGE_POSITIONS)
+
+    # Title
+    draw = ImageDraw.Draw(canvas)
+    txt_color = hex_to_rgb(pal["text"])
+    accent = hex_to_rgb(pal["accent"])
+    month_font = ImageFont.truetype(FONT_DISPLAY_ITALIC, 28)
+    title_font = ImageFont.truetype(FONT_DISPLAY_BOLD, 78)
+
     month = _current_month()
-    fr_months = {
-        "january": "janvier", "february": "f\u00e9vrier", "march": "mars",
-        "april": "avril", "may": "mai", "june": "juin", "july": "juillet",
-        "august": "ao\u00fbt", "september": "septembre", "october": "octobre",
-        "november": "novembre", "december": "d\u00e9cembre",
-    }
     if lang == "fr":
-        month = fr_months.get(month, month)
-
+        month = _FR_MONTHS.get(month, month)
     title_text = "Tout juste sorti" if lang == "fr" else theme_name
 
-    # Campaign branding header
-    _draw_collage_header(canvas, title_text, month,
-                         pal["text"], pal["accent"])
-
-    # Organized 2x2 product grid
-    _draw_collage_grid(canvas, products,
-                       grid_origin_x=60, grid_origin_y=260,
-                       cols=2, rows=2, gap_x=30, gap_y=30)
+    draw.text((80, 680), month, font=month_font, fill=accent)
+    draw.text((80, 720), title_text, font=title_font, fill=txt_color)
 
     return canvas
 
 
 def _ca_individual(product_data, frame_num=1, lang="en", gradient_idx=0):
-    """@Amazon.ca individual: gradient bg, product top 60%, copy bottom 40%.
-    Supports French via lang param."""
     pal = PALETTE["@Amazon.ca"]
     gradients = pal["gradients"]
     g = gradients[gradient_idx % len(gradients)]
 
     canvas = _make_gradient(W, H, g[0], g[1])
+    draw = ImageDraw.Draw(canvas)
 
-    # Top 60 %: product zone (y=0..1152)
-    prod_img = _prepare_product(product_data["image"], 600, 900)
+    # Watermark -- gradient-matched
+    wm_colors = pal["gradient_watermarks"]
+    wm_color = hex_to_rgb(wm_colors[gradient_idx % len(wm_colors)])
+    _draw_watermark_pattern(draw, "JUST DROPPED", wm_color)
+
+    txt_color = hex_to_rgb(pal["text"])
+    accent = hex_to_rgb(pal["accent"])
+
+    # Handwritten annotation
+    if product_data.get("copy"):
+        annotation = product_data["copy"][:35]
+        aw, _ = _draw_handwritten(draw, annotation, 0, 0, accent, size=24)
+        ax = (W - aw) // 2 + 30
+        ax = max(40, min(ax, W - aw - 40))
+        _draw_handwritten(draw, annotation, ax, 270, accent, size=24)
+
+    # Product centered
+    prod_img = _prepare_product(product_data["image"], 620, 820)
     px = (W - prod_img.width) // 2
-    py = (1152 - prod_img.height) // 2
+    py = 370
     paste_with_alpha(canvas, prod_img, (px, py))
 
-    # Bottom 40 %: copy zone (y=1152+)
-    _draw_benefit_copy(canvas, product_data.get("copy", ""), y_start=1192)
+    # Benefit copy + CTA (French CTA for fr)
+    copy_y = py + prod_img.height + 50
+    draw2 = ImageDraw.Draw(canvas)
+
+    if product_data.get("copy"):
+        copy_font = ImageFont.truetype(FONT_TEXT_REGULAR, 28)
+        copy_h = _draw_text_block(
+            draw2, product_data["copy"], 80, copy_y,
+            copy_font, txt_color,
+            max_width=W - 160, align="center",
+            line_spacing=10, max_lines=2,
+        )
+    else:
+        copy_h = 0
+
+    cta_y = copy_y + copy_h + 40
+    pname = product_data.get("product_name", "")
+    if pname:
+        cta_prefix = "MAGASINER" if lang == "fr" else "SHOP"
+        cta_font = ImageFont.truetype(FONT_TEXT_BOLD, 22)
+        cta_text = f"{cta_prefix} {pname.upper()}"
+        cta_bb = draw2.textbbox((0, 0), cta_text, font=cta_font)
+        cta_w = cta_bb[2] - cta_bb[0]
+        icon_size = 20
+        total_w = icon_size + 10 + cta_w
+        start_x = (W - total_w) // 2
+        cx = start_x + icon_size // 2
+        cy = cta_y + icon_size // 2
+        draw2.ellipse([cx - 9, cy - 9, cx + 9, cy + 9], outline=accent, width=2)
+        draw2.line([(cx - 3, cy + 3), (cx + 4, cy - 4)], fill=accent, width=2)
+        draw2.line([(cx + 4, cy - 4), (cx - 1, cy - 4)], fill=accent, width=2)
+        draw2.line([(cx + 4, cy - 4), (cx + 4, cy + 1)], fill=accent, width=2)
+        draw2.text((start_x + icon_size + 10, cta_y - 2), cta_text,
+                   font=cta_font, fill=accent)
 
     return canvas
 
 
-# ══════════════════════════════════════════════════════════════════
+# ==============================================================================
 # Public API
-# ══════════════════════════════════════════════════════════════════
+# ==============================================================================
 
 CHANNEL_BUILDERS = {
     "@AmazonHome": {
@@ -611,19 +755,6 @@ CHANNEL_BUILDERS = {
 
 
 def generate_franchise_frames(channel, products, theme_name="Just Dropped"):
-    """
-    Generate all frames for a single franchise/channel.
-
-    Args:
-        channel: One of the 5 channel names (e.g. "@AmazonHome")
-        products: List of dicts with keys: image (PIL Image), asin, brand,
-                  product_name, copy
-        theme_name: Theme name for the title card
-
-    Returns:
-        List of (filename, BytesIO) tuples.
-        Frame 1: collage, Frames 2-N+1: individual, Last frame: collage duplicate.
-    """
     builders = CHANNEL_BUILDERS[channel]
     results = []
 
@@ -669,10 +800,9 @@ def generate_franchise_frames(channel, products, theme_name="Just Dropped"):
         collage_buf_dup,
     ))
 
-    # For @Amazon.ca, also generate French versions
+    # @Amazon.ca: French versions
     if channel == "@Amazon.ca":
-        fr_theme = theme_name
-        collage_fr = builders["collage"](products, fr_theme, lang="fr",
+        collage_fr = builders["collage"](products, theme_name, lang="fr",
                                          gradient_idx=gradient_idx)
         fr_buf = _save_frame(collage_fr)
         results.append((f"{safe_channel}_FR/Frame_01_Collage.png", fr_buf))
@@ -696,16 +826,6 @@ def generate_franchise_frames(channel, products, theme_name="Just Dropped"):
 
 
 def generate_all_franchises(franchise_data, theme_names=None):
-    """
-    Generate frames for all franchises.
-
-    Args:
-        franchise_data: dict {channel_name: [product_dicts]}
-        theme_names: dict {channel_name: theme_name} or None
-
-    Returns:
-        List of (filename, BytesIO) tuples for all channels.
-    """
     if theme_names is None:
         theme_names = {}
 
