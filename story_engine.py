@@ -376,19 +376,10 @@ def _home_individual(product_data, frame_num=1):
     # Subtle watermark
     _draw_watermark_pattern(draw, "JUST DROPPED", wm_color)
 
-    # Handwritten annotation -- asymmetric positioning
-    if product_data.get("copy"):
-        annotation = product_data["copy"][:40]
-        aw, _ = _draw_handwritten(draw, annotation, 0, 0, accent, size=24)
-        # Offset slightly right of center for editorial feel
-        ax = (W - aw) // 2 + 40
-        ax = max(40, min(ax, W - aw - 40))
-        _draw_handwritten(draw, annotation, ax, 260, accent, size=24)
-
     # Product centered in upper zone
     prod_img = _prepare_product(product_data["image"], 620, 820)
     px = (W - prod_img.width) // 2
-    py = 360
+    py = 320
     paste_with_alpha(canvas, prod_img, (px, py))
 
     # Benefit copy + CTA
@@ -452,20 +443,12 @@ def _beauty_individual(product_data, frame_num=1):
 
     # Large mint circle behind product
     circle_r = 380
-    circle_cx, circle_cy = W // 2, 680
+    circle_cx, circle_cy = W // 2, 640
     draw.ellipse(
         [circle_cx - circle_r, circle_cy - circle_r,
          circle_cx + circle_r, circle_cy + circle_r],
         fill=circle_color
     )
-
-    # Handwritten annotation -- offset from center
-    if product_data.get("copy"):
-        annotation = product_data["copy"][:35]
-        aw, _ = _draw_handwritten(draw, annotation, 0, 0, accent, size=24)
-        ax = (W - aw) // 2 - 30
-        ax = max(40, min(ax, W - aw - 40))
-        _draw_handwritten(draw, annotation, ax, 250, accent, size=24)
 
     # Product on the circle
     prod_img = _prepare_product(product_data["image"], 580, 720)
@@ -539,28 +522,6 @@ def _fashion_individual(product_data, frame_num=1):
     py = 200
     paste_with_alpha(canvas, prod_img, (px, py))
 
-    # Scattered handwritten annotations at different positions around product
-    if product_data.get("copy"):
-        words = product_data["copy"].split()
-        if len(words) > 4:
-            chunk1 = " ".join(words[:3])
-            chunk2 = " ".join(words[3:6])
-        else:
-            chunk1 = product_data["copy"][:30]
-            chunk2 = None
-
-        # Top-right annotation (asymmetric, editorial)
-        sx = min(px + prod_img.width + 10, W - 260)
-        sy = max(py - 30, 150)
-        sx = max(30, min(sx, W - 260))
-        _draw_handwritten(draw, chunk1, sx, sy, accent, size=22)
-
-        # Left-side annotation lower down
-        if chunk2:
-            sx2 = max(px - 180, 30)
-            sy2 = py + int(prod_img.height * 0.4)
-            _draw_handwritten(draw, chunk2, sx2, sy2, accent, size=22)
-
     # Benefit copy + CTA below product
     copy_y = py + prod_img.height + 40
     _draw_benefit_and_cta(
@@ -632,18 +593,10 @@ def _amazon_individual(product_data, frame_num=1, gradient_idx=0):
     txt_color = hex_to_rgb(pal["text"])
     accent = hex_to_rgb(pal["accent"])
 
-    # Handwritten annotation -- offset from center
-    if product_data.get("copy"):
-        annotation = product_data["copy"][:35]
-        aw, _ = _draw_handwritten(draw, annotation, 0, 0, accent, size=24)
-        ax = (W - aw) // 2 + 30
-        ax = max(40, min(ax, W - aw - 40))
-        _draw_handwritten(draw, annotation, ax, 270, accent, size=24)
-
     # Product centered
     prod_img = _prepare_product(product_data["image"], 620, 820)
     px = (W - prod_img.width) // 2
-    py = 370
+    py = 320
     paste_with_alpha(canvas, prod_img, (px, py))
 
     # Benefit copy + CTA
@@ -718,18 +671,10 @@ def _ca_individual(product_data, frame_num=1, lang="en", gradient_idx=0):
     txt_color = hex_to_rgb(pal["text"])
     accent = hex_to_rgb(pal["accent"])
 
-    # Handwritten annotation
-    if product_data.get("copy"):
-        annotation = product_data["copy"][:35]
-        aw, _ = _draw_handwritten(draw, annotation, 0, 0, accent, size=24)
-        ax = (W - aw) // 2 + 30
-        ax = max(40, min(ax, W - aw - 40))
-        _draw_handwritten(draw, annotation, ax, 270, accent, size=24)
-
     # Product centered
     prod_img = _prepare_product(product_data["image"], 620, 820)
     px = (W - prod_img.width) // 2
-    py = 370
+    py = 320
     paste_with_alpha(canvas, prod_img, (px, py))
 
     # Benefit copy + CTA (French CTA for fr)
