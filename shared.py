@@ -110,12 +110,30 @@ def search_images(query, max_results=12):
         return []
 
 
+@st.cache_resource(show_spinner=False)
+def _get_remover():
+    """Load the InSPyReNet model once and cache it in memory."""
+    from transparent_background import Remover
+    return Remover(fast=True)
+
+
 def remove_background(img):
     """Remove background from image using InSPyReNet (transparent-background)."""
-    from transparent_background import Remover
-    remover = Remover()
-    img_rgb = img.convert("RGB")
+    remover = _get_remover()
+    # Downscale large images for faster inference, then scale back
+    max_dim = 1024
+    orig_size = img.size
+    if max(orig_size) > max_dim:
+        ratio = max_dim / max(orig_size)
+        small = img.resize((int(orig_size[0] * ratio), int(orig_size[1] * ratio)),
+                           Image.LANCZOS)
+    else:
+        small = img
+    img_rgb = small.convert("RGB")
     result = remover.process(img_rgb, type="rgba")
+    # Scale back to original size if we downscaled
+    if result.size != orig_size:
+        result = result.resize(orig_size, Image.LANCZOS)
     return result.convert("RGBA")
 
 
