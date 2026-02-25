@@ -213,10 +213,36 @@ if "sim_frames" in st.session_state and st.session_state.sim_frames:
         folder = fname.split("/")[0] if "/" in fname else "Other"
         folders.setdefault(folder, []).append((fname, buf))
 
-    # Display each channel group in its own expander
+    # Build horizontal strip for each channel group
+    def _make_strip(frame_list, card_height=800):
+        """Combine frames into a horizontal strip preview."""
+        scaled = []
+        for _fname, _buf in frame_list:
+            _buf.seek(0)
+            img = Image.open(_buf).convert("RGB")
+            ratio = card_height / img.height
+            new_w = int(img.width * ratio)
+            scaled.append(img.resize((new_w, card_height), Image.LANCZOS))
+        gap = 8
+        total_w = sum(s.width for s in scaled) + gap * (len(scaled) - 1)
+        strip = Image.new("RGB", (total_w, card_height), (255, 255, 255))
+        x = 0
+        for s in scaled:
+            strip.paste(s, (x, 0))
+            x += s.width + gap
+        return strip
+
+    strips = {}  # folder_name -> PIL Image
     for folder in sorted(folders.keys()):
         folder_frames = folders[folder]
-        with st.expander(f"{folder} ({len(folder_frames)} frames)", expanded=True):
+
+        # Banner strip for this channel
+        strip_img = _make_strip(folder_frames)
+        strips[folder] = strip_img
+        st.image(strip_img, caption=f"{folder} — Story Sequence", use_container_width=True)
+
+        # Individual frames in collapsible detail
+        with st.expander(f"{folder} — individual frames ({len(folder_frames)})", expanded=False):
             cols = st.columns(min(len(folder_frames), 6))
             for idx, (fname, buf) in enumerate(folder_frames):
                 with cols[idx % len(cols)]:
@@ -235,13 +261,19 @@ if "sim_frames" in st.session_state and st.session_state.sim_frames:
                 st.image(buf, width=360)
                 break
 
-    # Download ZIP
+    # Download ZIP (includes strip banners)
     st.divider()
     zip_buf = BytesIO()
     with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for fname, buf in frames:
             buf.seek(0)
             zf.writestr(fname, buf.read())
+        # Add strip banners to ZIP
+        for folder_name, strip_img in strips.items():
+            strip_buf = BytesIO()
+            strip_img.save(strip_buf, "JPEG", quality=92)
+            strip_buf.seek(0)
+            zf.writestr(f"{folder_name}/Story_Sequence_Banner.jpg", strip_buf.read())
     zip_buf.seek(0)
 
     gen_sel = st.session_state.get("sim_generated_selection", selection)
