@@ -16,7 +16,7 @@ from PIL import Image
 
 import story_engine
 import story_themes
-from shared import image_picker, fetch_image_from_url, remove_background
+from shared import image_picker, fetch_image_from_url, remove_background, show_offline_banner
 
 # ── Channel definitions ──────────────────────────────────────────
 CHANNELS = [
@@ -53,6 +53,7 @@ def _go_to_step(step):
 
 
 # ── Page header ──────────────────────────────────────────────────
+show_offline_banner()
 st.title("Just Dropped — Story Generator")
 
 # Step indicator

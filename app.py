@@ -9,6 +9,8 @@ import os
 
 import streamlit as st
 
+from shared import show_offline_banner
+
 # ── Page config ──────────────────────────────────────────────────
 st.set_page_config(page_title="ILM Tools", layout="wide")
 
@@ -31,6 +33,7 @@ if APP_PASSWORD:
         st.stop()
 
 # ── Home page ────────────────────────────────────────────────────
+show_offline_banner()
 st.title("ILM Tools")
 st.markdown(
     "Select a tool from the sidebar to get started:\n\n"

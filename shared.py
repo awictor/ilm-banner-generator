@@ -13,6 +13,18 @@ from PIL import Image
 BRAVE_API_KEY = os.environ.get("BRAVE_API_KEY", "")
 
 
+# ── Offline schedule banner ─────────────────────────────────────
+
+def show_offline_banner():
+    """Display a small info banner about the nightly offline schedule."""
+    st.info(
+        "This application is offline every night from **12 AM to 7 AM Pacific** "
+        "to save costs. If you need it during those hours, let me know and I will "
+        "keep it online those days — @awictor",
+        icon="\u23f0",
+    )
+
+
 # ── Image search helpers ────────────────────────────────────────
 
 @st.cache_data(ttl=300, show_spinner=False)

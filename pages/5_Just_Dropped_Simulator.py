@@ -12,7 +12,7 @@ import streamlit as st
 from PIL import Image
 
 import story_engine
-from shared import image_picker, remove_background
+from shared import image_picker, remove_background, show_offline_banner
 
 CHANNELS = [
     "@AmazonHome",
@@ -22,6 +22,7 @@ CHANNELS = [
     "@Amazon.ca",
 ]
 
+show_offline_banner()
 st.title("Just Dropped — Simulator")
 st.caption("Quick preview tool. Add products, pick a channel, generate frames.")
 

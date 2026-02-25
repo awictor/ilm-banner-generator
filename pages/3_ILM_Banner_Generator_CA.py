@@ -10,9 +10,10 @@ from io import BytesIO
 import streamlit as st
 
 import banner_engine
-from shared import image_picker
+from shared import image_picker, show_offline_banner
 
 # ── Main UI ──────────────────────────────────────────────────────
+show_offline_banner()
 st.title("ILM Banner Generator – Canada")
 
 left, right = st.columns(2)
