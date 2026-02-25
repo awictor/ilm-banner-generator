@@ -22,6 +22,8 @@ CHANNELS = [
     "@Amazon.ca",
 ]
 
+ALL_OPTION = "All Channels"
+
 show_offline_banner()
 st.title("Just Dropped — Simulator")
 st.caption("Quick preview tool. Add products, pick a channel, generate frames.")
@@ -30,7 +32,8 @@ st.caption("Quick preview tool. Add products, pick a channel, generate frames.")
 st.subheader("Settings")
 col_ch, col_theme = st.columns(2)
 with col_ch:
-    channel = st.selectbox("Channel", CHANNELS, key="sim_channel")
+    channel_options = [ALL_OPTION] + CHANNELS
+    selection = st.selectbox("Channel", channel_options, key="sim_channel")
 with col_theme:
     theme_name = st.text_input("Theme name", value="Just Dropped", key="sim_theme")
 
@@ -97,13 +100,21 @@ ready_products = [
 
 st.metric("Products ready", f"{len(ready_products)} / {num_products}")
 
-if st.button("Generate Frames", type="primary", disabled=len(ready_products) == 0):
-    with st.spinner(f"Generating {channel} frames..."):
-        frames = story_engine.generate_franchise_frames(
-            channel, ready_products, theme_name
-        )
+# Determine which channels to generate
+generate_channels = CHANNELS if selection == ALL_OPTION else [selection]
 
-    st.session_state.sim_frames = frames
+if st.button("Generate Frames", type="primary", disabled=len(ready_products) == 0):
+    all_frames = []
+    label = "all channels" if selection == ALL_OPTION else selection
+    with st.spinner(f"Generating {label} frames..."):
+        for ch in generate_channels:
+            frames = story_engine.generate_franchise_frames(
+                ch, ready_products, theme_name
+            )
+            all_frames.extend(frames)
+
+    st.session_state.sim_frames = all_frames
+    st.session_state.sim_generated_selection = selection
     st.rerun()
 
 # ── Preview ───────────────────────────────────────────────────────
@@ -111,33 +122,23 @@ if "sim_frames" in st.session_state and st.session_state.sim_frames:
     frames = st.session_state.sim_frames
     st.success(f"Generated {len(frames)} frames!")
 
-    # Show as horizontal scrollable strip
     st.subheader("Preview")
 
-    # Group EN / FR for Amazon.ca
-    if channel == "@Amazon.ca":
-        en_frames = [(f, b) for f, b in frames if "_FR/" not in f]
-        fr_frames = [(f, b) for f, b in frames if "_FR/" in f]
+    # Group frames by channel folder
+    folders = {}
+    for fname, buf in frames:
+        folder = fname.split("/")[0] if "/" in fname else "Other"
+        folders.setdefault(folder, []).append((fname, buf))
 
-        st.markdown("**English**")
-        cols = st.columns(min(len(en_frames), 6))
-        for idx, (fname, buf) in enumerate(en_frames):
-            with cols[idx % len(cols)]:
-                buf.seek(0)
-                st.image(buf, caption=fname.split("/")[-1], width=150)
-
-        st.markdown("**French**")
-        cols = st.columns(min(len(fr_frames), 6))
-        for idx, (fname, buf) in enumerate(fr_frames):
-            with cols[idx % len(cols)]:
-                buf.seek(0)
-                st.image(buf, caption=fname.split("/")[-1], width=150)
-    else:
-        cols = st.columns(min(len(frames), 6))
-        for idx, (fname, buf) in enumerate(frames):
-            with cols[idx % len(cols)]:
-                buf.seek(0)
-                st.image(buf, caption=fname.split("/")[-1], width=150)
+    # Display each channel group in its own expander
+    for folder in sorted(folders.keys()):
+        folder_frames = folders[folder]
+        with st.expander(f"{folder} ({len(folder_frames)} frames)", expanded=True):
+            cols = st.columns(min(len(folder_frames), 6))
+            for idx, (fname, buf) in enumerate(folder_frames):
+                with cols[idx % len(cols)]:
+                    buf.seek(0)
+                    st.image(buf, caption=fname.split("/")[-1], width=150)
 
     # Full-size viewer
     st.divider()
@@ -160,11 +161,17 @@ if "sim_frames" in st.session_state and st.session_state.sim_frames:
             zf.writestr(fname, buf.read())
     zip_buf.seek(0)
 
-    safe_ch = channel.replace("@", "").replace(".", "_")
+    gen_sel = st.session_state.get("sim_generated_selection", selection)
+    if gen_sel == ALL_OPTION:
+        zip_name = "Just_Dropped_All_Channels_Frames.zip"
+    else:
+        safe_ch = gen_sel.replace("@", "").replace(".", "_")
+        zip_name = f"Just_Dropped_{safe_ch}_Frames.zip"
+
     st.download_button(
         label="Download All Frames (ZIP)",
         data=zip_buf,
-        file_name=f"Just_Dropped_{safe_ch}_Frames.zip",
+        file_name=zip_name,
         mime="application/zip",
         type="primary",
     )
