@@ -12,6 +12,7 @@ Frame structure per franchise:
 """
 
 import os
+import random
 from datetime import datetime
 from io import BytesIO
 
@@ -280,43 +281,66 @@ def _pad_products(products, count):
 
 # -- Scattered collage helper -------------------------------------------------
 
-def _scatter_products(canvas, products, positions, circle_color=None):
-    """Place products at scattered (x, y, w, h, rotation) positions.
+def _scatter_products(canvas, products, positions, circle_color=None,
+                      jitter_xy=30, jitter_angle=5, jitter_scale=(0.90, 1.10),
+                      shuffle=True):
+    """Place products at scattered (x, y, w, h, rotation) positions with randomization.
 
     Each position is (x, y, w, h) or (x, y, w, h, angle).
     Products deliberately overlap and vary in size for organic editorial feel.
-    Rotation gives scattered, editorial look to collages.
+
+    Randomization per call:
+      - Product-to-slot assignment is shuffled (shuffle=True)
+      - Position jitter: ±jitter_xy pixels on x/y
+      - Rotation jitter: ±jitter_angle degrees added to base angle
+      - Size jitter: random scale factor within jitter_scale range
     """
     draw = ImageDraw.Draw(canvas)
     display = _pad_products(products, len(positions))
 
+    # Shuffle product-to-slot mapping so each run looks different
+    if shuffle:
+        slot_indices = list(range(len(positions)))
+        random.shuffle(slot_indices)
+    else:
+        slot_indices = list(range(len(positions)))
+
     for idx, prod_data in enumerate(display):
-        pos = positions[idx]
+        slot = slot_indices[idx]
+        pos = positions[slot]
         px, py, pw, ph = pos[0], pos[1], pos[2], pos[3]
-        angle = pos[4] if len(pos) > 4 else 0
+        base_angle = pos[4] if len(pos) > 4 else 0
+
+        # Apply jitter
+        px += random.randint(-jitter_xy, jitter_xy)
+        py += random.randint(-jitter_xy, jitter_xy)
+        angle = base_angle + random.uniform(-jitter_angle, jitter_angle)
+        scale = random.uniform(jitter_scale[0], jitter_scale[1])
+
+        # Scale the cell size
+        sw = int(pw * scale)
+        sh = int(ph * scale)
 
         if circle_color:
-            cr = min(pw, ph) // 2 - 10
-            ccx = px + pw // 2
-            ccy = py + ph // 2
+            cr = min(sw, sh) // 2 - 10
+            ccx = px + sw // 2
+            ccy = py + sh // 2
             draw.ellipse([ccx - cr, ccy - cr, ccx + cr, ccy + cr],
                          fill=hex_to_rgb(circle_color))
-            # Redraw needed after ellipse
             draw = ImageDraw.Draw(canvas)
 
-        prod_img = _prepare_product(prod_data["image"], pw - 40, ph - 40)
+        prod_img = _prepare_product(prod_data["image"], sw - 40, sh - 40)
 
         # Add drop shadow for depth
         prod_img = _add_drop_shadow(prod_img, offset=(5, 5),
                                     blur_radius=10, opacity=50)
 
-        if angle != 0:
-            # Rotate with expand so the image isn't clipped
+        if abs(angle) > 0.5:
             prod_img = prod_img.rotate(angle, resample=Image.BICUBIC,
                                        expand=True)
 
-        img_x = px + (pw - prod_img.width) // 2
-        img_y = py + (ph - prod_img.height) // 2
+        img_x = px + (sw - prod_img.width) // 2
+        img_y = py + (sh - prod_img.height) // 2
         paste_with_alpha(canvas, prod_img, (img_x, img_y))
 
 
@@ -357,8 +381,9 @@ def _home_collage(products, theme_name="Just Dropped"):
     month_font = ImageFont.truetype(FONT_DISPLAY_ITALIC, 30)
     title_font = ImageFont.truetype(FONT_DISPLAY_BOLD, 80)
 
-    draw.text((80, 680), _current_month(), font=month_font, fill=accent)
-    draw.text((80, 720), theme_name, font=title_font, fill=txt_color)
+    ty = 680 + random.randint(-20, 20)
+    draw.text((80, ty), _current_month(), font=month_font, fill=accent)
+    draw.text((80, ty + 40), theme_name, font=title_font, fill=txt_color)
 
     return canvas
 
@@ -423,9 +448,10 @@ def _beauty_collage(products, theme_name="Just Dropped"):
     title_font = ImageFont.truetype(FONT_DISPLAY_BOLD, 78)
     sub_font = ImageFont.truetype(FONT_TEXT_REGULAR, 28)
 
-    draw.text((80, 660), _current_month(), font=month_font, fill=accent)
-    draw.text((80, 700), theme_name, font=title_font, fill=txt_color)
-    draw.text((80, 800), "new beauty finds to add to cart",
+    ty = 660 + random.randint(-20, 20)
+    draw.text((80, ty), _current_month(), font=month_font, fill=accent)
+    draw.text((80, ty + 40), theme_name, font=title_font, fill=txt_color)
+    draw.text((80, ty + 140), "new beauty finds to add to cart",
               font=sub_font, fill=accent)
 
     return canvas
@@ -497,12 +523,13 @@ def _fashion_collage(products, theme_name="Just Dropped"):
     title_font = ImageFont.truetype(FONT_DISPLAY_BOLD, 90)
     sub_font = ImageFont.truetype(FONT_TEXT_REGULAR, 22)
 
-    draw.text((55, 680), "JUST", font=title_font, fill=txt_color)
-    draw.text((55, 780), "DROPPED", font=title_font, fill=txt_color)
-    draw.text((60, 890), "DISCOVER MORE MUST-HAVES", font=sub_font, fill=accent)
+    ty = 680 + random.randint(-20, 20)
+    draw.text((55, ty), "JUST", font=title_font, fill=txt_color)
+    draw.text((55, ty + 100), "DROPPED", font=title_font, fill=txt_color)
+    draw.text((60, ty + 210), "DISCOVER MORE MUST-HAVES", font=sub_font, fill=accent)
 
     # Fashion collage has CTA (per reference)
-    _draw_cta_link(canvas, "AMAZON FASHION", accent, 940)
+    _draw_cta_link(canvas, "AMAZON FASHION", accent, ty + 260)
 
     return canvas
 
@@ -571,8 +598,9 @@ def _amazon_collage(products, theme_name="Just Dropped", gradient_idx=0):
     month_font = ImageFont.truetype(FONT_DISPLAY_ITALIC, 28)
     title_font = ImageFont.truetype(FONT_DISPLAY_BOLD, 78)
 
-    draw.text((80, 680), _current_month(), font=month_font, fill=accent)
-    draw.text((80, 720), theme_name, font=title_font, fill=txt_color)
+    ty = 680 + random.randint(-20, 20)
+    draw.text((80, ty), _current_month(), font=month_font, fill=accent)
+    draw.text((80, ty + 40), theme_name, font=title_font, fill=txt_color)
 
     return canvas
 
@@ -649,8 +677,9 @@ def _ca_collage(products, theme_name="Just Dropped", lang="en", gradient_idx=0):
         month = _FR_MONTHS.get(month, month)
     title_text = "Tout juste sorti" if lang == "fr" else theme_name
 
-    draw.text((80, 680), month, font=month_font, fill=accent)
-    draw.text((80, 720), title_text, font=title_font, fill=txt_color)
+    ty = 680 + random.randint(-20, 20)
+    draw.text((80, ty), month, font=month_font, fill=accent)
+    draw.text((80, ty + 40), title_text, font=title_font, fill=txt_color)
 
     return canvas
 
@@ -747,7 +776,7 @@ def generate_franchise_frames(channel, products, theme_name="Just Dropped"):
     builders = CHANNEL_BUILDERS[channel]
     results = []
 
-    gradient_idx = 0
+    gradient_idx = random.randint(0, 5)
     safe_channel = channel.replace("@", "").replace(".", "_")
 
     # Frame 1: Collage
