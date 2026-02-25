@@ -75,7 +75,7 @@ for i in range(num_products):
             )
             products[i]["copy"] = st.text_area(
                 "Benefit Copy", value=products[i]["copy"],
-                key=f"sim_copy_{i}", height=60
+                key=f"sim_copy_{i}", height=68
             )
         with right:
             img = image_picker(
