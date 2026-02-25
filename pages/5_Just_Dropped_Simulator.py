@@ -29,6 +29,10 @@ show_offline_banner()
 st.title("Just Dropped — Simulator")
 st.caption("Quick preview tool. Add products, pick a channel, generate frames.")
 
+# Initialise session state EARLY so sample library can use it
+if "sim_products" not in st.session_state:
+    st.session_state.sim_products = []
+
 # ── Sample Library ────────────────────────────────────────────────
 with st.expander("Sample Product Library — click to auto-fill slots", expanded=False):
     st.caption("Pick products to auto-fill the slots below. Image + all fields are loaded automatically.")
@@ -127,10 +131,6 @@ st.divider()
 
 # ── Product Entry ─────────────────────────────────────────────────
 st.subheader("Products")
-
-# Initialise session state
-if "sim_products" not in st.session_state:
-    st.session_state.sim_products = []
 
 # Ensure we have enough entries
 while len(st.session_state.sim_products) < num_products:

@@ -121,7 +121,7 @@ def remove_background(img):
     """Remove background from image using InSPyReNet (transparent-background)."""
     remover = _get_remover()
     # Downscale large images for faster inference, then scale back
-    max_dim = 1024
+    max_dim = 512
     orig_size = img.size
     if max(orig_size) > max_dim:
         ratio = max_dim / max(orig_size)
