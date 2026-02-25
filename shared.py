@@ -114,7 +114,7 @@ def search_images(query, max_results=12):
 def _get_remover():
     """Load the InSPyReNet model once and cache it in memory."""
     from transparent_background import Remover
-    return Remover(fast=True)
+    return Remover()
 
 
 def remove_background(img):
