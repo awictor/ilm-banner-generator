@@ -376,14 +376,19 @@ def _home_collage(products, theme_name="Just Dropped"):
     # Scattered products (some overlap into title area for organic feel)
     _scatter_products(canvas, products, _HOME_COLLAGE_POSITIONS)
 
-    # Title block in center band -- drawn OVER products for layering
+    # Title block -- centered horizontally & vertically in middle band
     draw = ImageDraw.Draw(canvas)
-    month_font = ImageFont.truetype(FONT_DISPLAY_ITALIC, 30)
-    title_font = ImageFont.truetype(FONT_DISPLAY_BOLD, 80)
+    month_font = ImageFont.truetype(FONT_DISPLAY_ITALIC, 36)
+    title_font = ImageFont.truetype(FONT_DISPLAY_BOLD, 96)
 
-    ty = 680 + random.randint(-20, 20)
-    draw.text((80, ty), _current_month(), font=month_font, fill=accent)
-    draw.text((80, ty + 40), theme_name, font=title_font, fill=txt_color)
+    ty = (H // 2 - 60) + random.randint(-20, 20)
+
+    month_text = _current_month()
+    month_w = draw.textbbox((0, 0), month_text, font=month_font)[2]
+    draw.text(((W - month_w) // 2, ty), month_text, font=month_font, fill=accent)
+
+    title_w = draw.textbbox((0, 0), theme_name, font=title_font)[2]
+    draw.text(((W - title_w) // 2, ty + 46), theme_name, font=title_font, fill=txt_color)
 
     return canvas
 
@@ -442,17 +447,24 @@ def _beauty_collage(products, theme_name="Just Dropped"):
     _scatter_products(canvas, products, _BEAUTY_COLLAGE_POSITIONS,
                       circle_color=pal["circle"])
 
-    # Title block in center band -- OVER products
+    # Title block -- centered horizontally & vertically in middle band
     draw = ImageDraw.Draw(canvas)
-    month_font = ImageFont.truetype(FONT_DISPLAY_ITALIC, 30)
-    title_font = ImageFont.truetype(FONT_DISPLAY_BOLD, 78)
-    sub_font = ImageFont.truetype(FONT_TEXT_REGULAR, 28)
+    month_font = ImageFont.truetype(FONT_DISPLAY_ITALIC, 36)
+    title_font = ImageFont.truetype(FONT_DISPLAY_BOLD, 96)
+    sub_font = ImageFont.truetype(FONT_TEXT_REGULAR, 30)
 
-    ty = 660 + random.randint(-20, 20)
-    draw.text((80, ty), _current_month(), font=month_font, fill=accent)
-    draw.text((80, ty + 40), theme_name, font=title_font, fill=txt_color)
-    draw.text((80, ty + 140), "new beauty finds to add to cart",
-              font=sub_font, fill=accent)
+    ty = (H // 2 - 80) + random.randint(-20, 20)
+
+    month_text = _current_month()
+    month_w = draw.textbbox((0, 0), month_text, font=month_font)[2]
+    draw.text(((W - month_w) // 2, ty), month_text, font=month_font, fill=accent)
+
+    title_w = draw.textbbox((0, 0), theme_name, font=title_font)[2]
+    draw.text(((W - title_w) // 2, ty + 46), theme_name, font=title_font, fill=txt_color)
+
+    sub_text = "new beauty finds to add to cart"
+    sub_w = draw.textbbox((0, 0), sub_text, font=sub_font)[2]
+    draw.text(((W - sub_w) // 2, ty + 156), sub_text, font=sub_font, fill=accent)
 
     return canvas
 
@@ -518,18 +530,25 @@ def _fashion_collage(products, theme_name="Just Dropped"):
     # Products BEHIND title -- editorial overlap
     _scatter_products(canvas, products, _FASHION_COLLAGE_POSITIONS)
 
-    # Stacked editorial title OVER products
+    # Stacked editorial title -- centered
     draw = ImageDraw.Draw(canvas)
-    title_font = ImageFont.truetype(FONT_DISPLAY_BOLD, 90)
-    sub_font = ImageFont.truetype(FONT_TEXT_REGULAR, 22)
+    title_font = ImageFont.truetype(FONT_DISPLAY_BOLD, 108)
+    sub_font = ImageFont.truetype(FONT_TEXT_REGULAR, 26)
 
-    ty = 680 + random.randint(-20, 20)
-    draw.text((55, ty), "JUST", font=title_font, fill=txt_color)
-    draw.text((55, ty + 100), "DROPPED", font=title_font, fill=txt_color)
-    draw.text((60, ty + 210), "DISCOVER MORE MUST-HAVES", font=sub_font, fill=accent)
+    ty = (H // 2 - 80) + random.randint(-20, 20)
+
+    just_w = draw.textbbox((0, 0), "JUST", font=title_font)[2]
+    draw.text(((W - just_w) // 2, ty), "JUST", font=title_font, fill=txt_color)
+
+    dropped_w = draw.textbbox((0, 0), "DROPPED", font=title_font)[2]
+    draw.text(((W - dropped_w) // 2, ty + 116), "DROPPED", font=title_font, fill=txt_color)
+
+    sub_text = "DISCOVER MORE MUST-HAVES"
+    sub_w = draw.textbbox((0, 0), sub_text, font=sub_font)[2]
+    draw.text(((W - sub_w) // 2, ty + 240), sub_text, font=sub_font, fill=accent)
 
     # Fashion collage has CTA (per reference)
-    _draw_cta_link(canvas, "AMAZON FASHION", accent, ty + 260)
+    _draw_cta_link(canvas, "AMAZON FASHION", accent, ty + 290)
 
     return canvas
 
@@ -591,16 +610,21 @@ def _amazon_collage(products, theme_name="Just Dropped", gradient_idx=0):
     # Scattered products -- overlap into title zone
     _scatter_products(canvas, products, _AMAZON_COLLAGE_POSITIONS)
 
-    # Title OVER products
+    # Title -- centered
     draw = ImageDraw.Draw(canvas)
     txt_color = hex_to_rgb(pal["text"])
     accent = hex_to_rgb(pal["accent"])
-    month_font = ImageFont.truetype(FONT_DISPLAY_ITALIC, 28)
-    title_font = ImageFont.truetype(FONT_DISPLAY_BOLD, 78)
+    month_font = ImageFont.truetype(FONT_DISPLAY_ITALIC, 36)
+    title_font = ImageFont.truetype(FONT_DISPLAY_BOLD, 96)
 
-    ty = 680 + random.randint(-20, 20)
-    draw.text((80, ty), _current_month(), font=month_font, fill=accent)
-    draw.text((80, ty + 40), theme_name, font=title_font, fill=txt_color)
+    ty = (H // 2 - 60) + random.randint(-20, 20)
+
+    month_text = _current_month()
+    month_w = draw.textbbox((0, 0), month_text, font=month_font)[2]
+    draw.text(((W - month_w) // 2, ty), month_text, font=month_font, fill=accent)
+
+    title_w = draw.textbbox((0, 0), theme_name, font=title_font)[2]
+    draw.text(((W - title_w) // 2, ty + 46), theme_name, font=title_font, fill=txt_color)
 
     return canvas
 
@@ -669,17 +693,21 @@ def _ca_collage(products, theme_name="Just Dropped", lang="en", gradient_idx=0):
     draw = ImageDraw.Draw(canvas)
     txt_color = hex_to_rgb(pal["text"])
     accent = hex_to_rgb(pal["accent"])
-    month_font = ImageFont.truetype(FONT_DISPLAY_ITALIC, 28)
-    title_font = ImageFont.truetype(FONT_DISPLAY_BOLD, 78)
+    month_font = ImageFont.truetype(FONT_DISPLAY_ITALIC, 36)
+    title_font = ImageFont.truetype(FONT_DISPLAY_BOLD, 96)
 
     month = _current_month()
     if lang == "fr":
         month = _FR_MONTHS.get(month, month)
     title_text = "Tout juste sorti" if lang == "fr" else theme_name
 
-    ty = 680 + random.randint(-20, 20)
-    draw.text((80, ty), month, font=month_font, fill=accent)
-    draw.text((80, ty + 40), title_text, font=title_font, fill=txt_color)
+    ty = (H // 2 - 60) + random.randint(-20, 20)
+
+    month_w = draw.textbbox((0, 0), month, font=month_font)[2]
+    draw.text(((W - month_w) // 2, ty), month, font=month_font, fill=accent)
+
+    title_w = draw.textbbox((0, 0), title_text, font=title_font)[2]
+    draw.text(((W - title_w) // 2, ty + 52), title_text, font=title_font, fill=txt_color)
 
     return canvas
 

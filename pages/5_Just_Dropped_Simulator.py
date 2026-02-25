@@ -132,9 +132,16 @@ for i in range(num_products):
             # Show pre-loaded image if it exists
             if products[i].get("image") is not None:
                 st.image(products[i]["image"], caption="Loaded from library", width=200)
-                if st.button("Clear image", key=f"sim_clear_{i}"):
-                    products[i]["image"] = None
-                    st.rerun()
+                col_rm, col_clr = st.columns(2)
+                with col_rm:
+                    if st.button("Remove BG", key=f"sim_rembg_{i}"):
+                        with st.spinner("Removing background..."):
+                            products[i]["image"] = remove_background(products[i]["image"])
+                        st.rerun()
+                with col_clr:
+                    if st.button("Clear image", key=f"sim_clear_{i}"):
+                        products[i]["image"] = None
+                        st.rerun()
             else:
                 img = image_picker(
                     f"product {i+1} image",

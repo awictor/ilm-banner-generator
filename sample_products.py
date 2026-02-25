@@ -2,7 +2,7 @@
 Sample product library for the Just Dropped Simulator.
 
 Each entry has: asin, brand, product_name, copy, and an image_url
-pointing to a publicly accessible Amazon product image.
+pointing to a publicly accessible product image.
 """
 
 SAMPLE_PRODUCTS = [
@@ -12,7 +12,7 @@ SAMPLE_PRODUCTS = [
         "brand": "Casaluna",
         "product_name": "Linen Duvet Cover Set",
         "copy": "Wrap yourself in breathable linen comfort all year long",
-        "image_url": "https://m.media-amazon.com/images/I/71HnEhkR5QL._AC_SL1500_.jpg",
+        "image_url": "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800",
         "category": "Home",
     },
     {
@@ -20,7 +20,7 @@ SAMPLE_PRODUCTS = [
         "brand": "Hearth & Hand",
         "product_name": "Stoneware Serving Bowl",
         "copy": "Elevate every gathering with timeless stoneware design",
-        "image_url": "https://m.media-amazon.com/images/I/61VWGq2g9zL._AC_SL1500_.jpg",
+        "image_url": "https://images.unsplash.com/photo-1610701596007-11502861dcfa?w=800",
         "category": "Home",
     },
     {
@@ -28,7 +28,7 @@ SAMPLE_PRODUCTS = [
         "brand": "Threshold",
         "product_name": "Woven Throw Blanket",
         "copy": "Add warmth and texture to any room in seconds",
-        "image_url": "https://m.media-amazon.com/images/I/81kkV+JC4mL._AC_SL1500_.jpg",
+        "image_url": "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800",
         "category": "Home",
     },
     {
@@ -36,7 +36,7 @@ SAMPLE_PRODUCTS = [
         "brand": "Yankee Candle",
         "product_name": "Vanilla French Toast Candle",
         "copy": "Fill your space with warm bakery-inspired comfort",
-        "image_url": "https://m.media-amazon.com/images/I/61O3esz7a8L._AC_SL1500_.jpg",
+        "image_url": "https://images.unsplash.com/photo-1602028915047-37269d1a73f7?w=800",
         "category": "Home",
     },
     # ── Beauty ────────────────────────────────────────────────────
@@ -45,7 +45,7 @@ SAMPLE_PRODUCTS = [
         "brand": "CeraVe",
         "product_name": "Hydrating Facial Cleanser",
         "copy": "Gently cleanse while locking in essential moisture",
-        "image_url": "https://m.media-amazon.com/images/I/61MBNj5-SzL._SL1500_.jpg",
+        "image_url": "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=800",
         "category": "Beauty",
     },
     {
@@ -53,7 +53,7 @@ SAMPLE_PRODUCTS = [
         "brand": "Laneige",
         "product_name": "Lip Sleeping Mask",
         "copy": "Wake up to pillowy soft lips every morning",
-        "image_url": "https://m.media-amazon.com/images/I/61T0-cQDh9L._SL1500_.jpg",
+        "image_url": "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=800",
         "category": "Beauty",
     },
     {
@@ -61,7 +61,7 @@ SAMPLE_PRODUCTS = [
         "brand": "Olaplex",
         "product_name": "No.3 Hair Perfector",
         "copy": "Repair and strengthen damaged hair from the inside out",
-        "image_url": "https://m.media-amazon.com/images/I/51P-O-jGp0L._SL1500_.jpg",
+        "image_url": "https://images.unsplash.com/photo-1526947425960-945c6e72858f?w=800",
         "category": "Beauty",
     },
     {
@@ -69,7 +69,7 @@ SAMPLE_PRODUCTS = [
         "brand": "Maybelline",
         "product_name": "Sky High Mascara",
         "copy": "Reach impossible lash length with flex tower technology",
-        "image_url": "https://m.media-amazon.com/images/I/61xT2bZLViL._SL1500_.jpg",
+        "image_url": "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800",
         "category": "Beauty",
     },
     # ── Fashion ───────────────────────────────────────────────────
@@ -78,7 +78,7 @@ SAMPLE_PRODUCTS = [
         "brand": "The Drop",
         "product_name": "Oversized Linen Blazer",
         "copy": "Effortlessly polish any look with relaxed tailoring",
-        "image_url": "https://m.media-amazon.com/images/I/61gIJiJnMBL._AC_SL1500_.jpg",
+        "image_url": "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=800",
         "category": "Fashion",
     },
     {
@@ -86,7 +86,7 @@ SAMPLE_PRODUCTS = [
         "brand": "Amazon Essentials",
         "product_name": "Chunky Knit Cardigan",
         "copy": "Layer on cozy texture for effortless everyday style",
-        "image_url": "https://m.media-amazon.com/images/I/71xiSCAGO5L._AC_SL1500_.jpg",
+        "image_url": "https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=800",
         "category": "Fashion",
     },
     {
@@ -94,7 +94,7 @@ SAMPLE_PRODUCTS = [
         "brand": "Levi's",
         "product_name": "Ribcage Wide Leg Jeans",
         "copy": "Flatter your figure with a high-rise vintage silhouette",
-        "image_url": "https://m.media-amazon.com/images/I/51Sfl2cp2iL._AC_SL1500_.jpg",
+        "image_url": "https://images.unsplash.com/photo-1542272604-787c3835535d?w=800",
         "category": "Fashion",
     },
     {
@@ -102,7 +102,7 @@ SAMPLE_PRODUCTS = [
         "brand": "Steve Madden",
         "product_name": "Maxima Platform Sneaker",
         "copy": "Step up your street style with bold platform height",
-        "image_url": "https://m.media-amazon.com/images/I/61iAx+kkNKL._AC_SL1500_.jpg",
+        "image_url": "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800",
         "category": "Fashion",
     },
     # ── General / Trending ────────────────────────────────────────
@@ -111,7 +111,7 @@ SAMPLE_PRODUCTS = [
         "brand": "Stanley",
         "product_name": "Quencher H2.0 Tumbler 40oz",
         "copy": "Stay hydrated in style from morning to night",
-        "image_url": "https://m.media-amazon.com/images/I/71RBQMSLE-L._AC_SL1500_.jpg",
+        "image_url": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800",
         "category": "Trending",
     },
     {
@@ -119,7 +119,7 @@ SAMPLE_PRODUCTS = [
         "brand": "Kindle",
         "product_name": "Kindle Paperwhite Signature",
         "copy": "Read any book anywhere with a glare-free display",
-        "image_url": "https://m.media-amazon.com/images/I/61d5gMOmBzL._AC_SL1000_.jpg",
+        "image_url": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800",
         "category": "Trending",
     },
     {
@@ -127,7 +127,7 @@ SAMPLE_PRODUCTS = [
         "brand": "Apple",
         "product_name": "AirPods Pro 2nd Gen",
         "copy": "Immerse yourself in crystal clear adaptive audio",
-        "image_url": "https://m.media-amazon.com/images/I/61SUj2aKoEL._AC_SL1500_.jpg",
+        "image_url": "https://images.unsplash.com/photo-1606220588913-b3aacb4d2f46?w=800",
         "category": "Trending",
     },
     {
@@ -135,7 +135,7 @@ SAMPLE_PRODUCTS = [
         "brand": "Ninja",
         "product_name": "Creami Ice Cream Maker",
         "copy": "Turn any frozen base into creamy desserts in minutes",
-        "image_url": "https://m.media-amazon.com/images/I/61VJJnqBkYL._AC_SL1500_.jpg",
+        "image_url": "https://images.unsplash.com/photo-1570222094114-d054a817e56b?w=800",
         "category": "Trending",
     },
     {
@@ -143,7 +143,7 @@ SAMPLE_PRODUCTS = [
         "brand": "Dyson",
         "product_name": "Airwrap Multi-Styler",
         "copy": "Curl wrap and smooth with no extreme heat damage",
-        "image_url": "https://m.media-amazon.com/images/I/51hID4SN4zL._AC_SL1200_.jpg",
+        "image_url": "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800",
         "category": "Trending",
     },
     {
@@ -151,15 +151,15 @@ SAMPLE_PRODUCTS = [
         "brand": "Our Place",
         "product_name": "Always Pan 2.0",
         "copy": "Cook with less oil for healthy meals in one pan",
-        "image_url": "https://m.media-amazon.com/images/I/61SeVmAi43L._AC_SL1500_.jpg",
+        "image_url": "https://images.unsplash.com/photo-1585837146751-a44118595680?w=800",
         "category": "Home",
     },
     {
         "asin": "B0CG9GZ4LK",
-        "brand": "Solo Stove",
-        "product_name": "Bonfire 2.0 Fire Pit",
-        "copy": "Gather around smokeless flames under the stars",
-        "image_url": "https://m.media-amazon.com/images/I/71Mu8b2YQEL._AC_SL1500_.jpg",
+        "brand": "Modern Living",
+        "product_name": "Mid-Century Sofa",
+        "copy": "Gather around in comfort with timeless modern design",
+        "image_url": "https://images.unsplash.com/photo-1567016432779-094069958ea5?w=800",
         "category": "Home",
     },
     {
@@ -167,7 +167,7 @@ SAMPLE_PRODUCTS = [
         "brand": "Beis",
         "product_name": "The Carry-On Roller",
         "copy": "Travel smarter with organized luxury at your side",
-        "image_url": "https://m.media-amazon.com/images/I/71hkVRS0GiL._AC_SL1500_.jpg",
+        "image_url": "https://images.unsplash.com/photo-1565026057447-bc90a3dceb87?w=800",
         "category": "Fashion",
     },
 ]
