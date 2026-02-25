@@ -1,0 +1,173 @@
+"""
+Sample product library for the Just Dropped Simulator.
+
+Each entry has: asin, brand, product_name, copy, and an image_url
+pointing to a publicly accessible Amazon product image.
+"""
+
+SAMPLE_PRODUCTS = [
+    # ── Home ──────────────────────────────────────────────────────
+    {
+        "asin": "B0CX23V2ZK",
+        "brand": "Casaluna",
+        "product_name": "Linen Duvet Cover Set",
+        "copy": "Wrap yourself in breathable linen comfort all year long",
+        "image_url": "https://m.media-amazon.com/images/I/71HnEhkR5QL._AC_SL1500_.jpg",
+        "category": "Home",
+    },
+    {
+        "asin": "B0DJKM8VGN",
+        "brand": "Hearth & Hand",
+        "product_name": "Stoneware Serving Bowl",
+        "copy": "Elevate every gathering with timeless stoneware design",
+        "image_url": "https://m.media-amazon.com/images/I/61VWGq2g9zL._AC_SL1500_.jpg",
+        "category": "Home",
+    },
+    {
+        "asin": "B0C1JYQ86S",
+        "brand": "Threshold",
+        "product_name": "Woven Throw Blanket",
+        "copy": "Add warmth and texture to any room in seconds",
+        "image_url": "https://m.media-amazon.com/images/I/81kkV+JC4mL._AC_SL1500_.jpg",
+        "category": "Home",
+    },
+    {
+        "asin": "B0BN3MRVKP",
+        "brand": "Yankee Candle",
+        "product_name": "Vanilla French Toast Candle",
+        "copy": "Fill your space with warm bakery-inspired comfort",
+        "image_url": "https://m.media-amazon.com/images/I/61O3esz7a8L._AC_SL1500_.jpg",
+        "category": "Home",
+    },
+    # ── Beauty ────────────────────────────────────────────────────
+    {
+        "asin": "B09RKMX3PX",
+        "brand": "CeraVe",
+        "product_name": "Hydrating Facial Cleanser",
+        "copy": "Gently cleanse while locking in essential moisture",
+        "image_url": "https://m.media-amazon.com/images/I/61MBNj5-SzL._SL1500_.jpg",
+        "category": "Beauty",
+    },
+    {
+        "asin": "B0CDR77D5X",
+        "brand": "Laneige",
+        "product_name": "Lip Sleeping Mask",
+        "copy": "Wake up to pillowy soft lips every morning",
+        "image_url": "https://m.media-amazon.com/images/I/61T0-cQDh9L._SL1500_.jpg",
+        "category": "Beauty",
+    },
+    {
+        "asin": "B08P57FWBL",
+        "brand": "Olaplex",
+        "product_name": "No.3 Hair Perfector",
+        "copy": "Repair and strengthen damaged hair from the inside out",
+        "image_url": "https://m.media-amazon.com/images/I/51P-O-jGp0L._SL1500_.jpg",
+        "category": "Beauty",
+    },
+    {
+        "asin": "B07Q1TQ1YC",
+        "brand": "Maybelline",
+        "product_name": "Sky High Mascara",
+        "copy": "Reach impossible lash length with flex tower technology",
+        "image_url": "https://m.media-amazon.com/images/I/61xT2bZLViL._SL1500_.jpg",
+        "category": "Beauty",
+    },
+    # ── Fashion ───────────────────────────────────────────────────
+    {
+        "asin": "B09MW2RTDV",
+        "brand": "The Drop",
+        "product_name": "Oversized Linen Blazer",
+        "copy": "Effortlessly polish any look with relaxed tailoring",
+        "image_url": "https://m.media-amazon.com/images/I/61gIJiJnMBL._AC_SL1500_.jpg",
+        "category": "Fashion",
+    },
+    {
+        "asin": "B0CKX4W1TW",
+        "brand": "Amazon Essentials",
+        "product_name": "Chunky Knit Cardigan",
+        "copy": "Layer on cozy texture for effortless everyday style",
+        "image_url": "https://m.media-amazon.com/images/I/71xiSCAGO5L._AC_SL1500_.jpg",
+        "category": "Fashion",
+    },
+    {
+        "asin": "B0BT3GLPVX",
+        "brand": "Levi's",
+        "product_name": "Ribcage Wide Leg Jeans",
+        "copy": "Flatter your figure with a high-rise vintage silhouette",
+        "image_url": "https://m.media-amazon.com/images/I/51Sfl2cp2iL._AC_SL1500_.jpg",
+        "category": "Fashion",
+    },
+    {
+        "asin": "B09PV2T1DS",
+        "brand": "Steve Madden",
+        "product_name": "Maxima Platform Sneaker",
+        "copy": "Step up your street style with bold platform height",
+        "image_url": "https://m.media-amazon.com/images/I/61iAx+kkNKL._AC_SL1500_.jpg",
+        "category": "Fashion",
+    },
+    # ── General / Trending ────────────────────────────────────────
+    {
+        "asin": "B09V3KXJPB",
+        "brand": "Stanley",
+        "product_name": "Quencher H2.0 Tumbler 40oz",
+        "copy": "Stay hydrated in style from morning to night",
+        "image_url": "https://m.media-amazon.com/images/I/71RBQMSLE-L._AC_SL1500_.jpg",
+        "category": "Trending",
+    },
+    {
+        "asin": "B0CHX3TBR6",
+        "brand": "Kindle",
+        "product_name": "Kindle Paperwhite Signature",
+        "copy": "Read any book anywhere with a glare-free display",
+        "image_url": "https://m.media-amazon.com/images/I/61d5gMOmBzL._AC_SL1000_.jpg",
+        "category": "Trending",
+    },
+    {
+        "asin": "B0CFWXKMFJ",
+        "brand": "Apple",
+        "product_name": "AirPods Pro 2nd Gen",
+        "copy": "Immerse yourself in crystal clear adaptive audio",
+        "image_url": "https://m.media-amazon.com/images/I/61SUj2aKoEL._AC_SL1500_.jpg",
+        "category": "Trending",
+    },
+    {
+        "asin": "B0D1XD1ZV3",
+        "brand": "Ninja",
+        "product_name": "Creami Ice Cream Maker",
+        "copy": "Turn any frozen base into creamy desserts in minutes",
+        "image_url": "https://m.media-amazon.com/images/I/61VJJnqBkYL._AC_SL1500_.jpg",
+        "category": "Trending",
+    },
+    {
+        "asin": "B0CS5LGLC6",
+        "brand": "Dyson",
+        "product_name": "Airwrap Multi-Styler",
+        "copy": "Curl wrap and smooth with no extreme heat damage",
+        "image_url": "https://m.media-amazon.com/images/I/51hID4SN4zL._AC_SL1200_.jpg",
+        "category": "Trending",
+    },
+    {
+        "asin": "B0BSHF7WHW",
+        "brand": "Our Place",
+        "product_name": "Always Pan 2.0",
+        "copy": "Cook with less oil for healthy meals in one pan",
+        "image_url": "https://m.media-amazon.com/images/I/61SeVmAi43L._AC_SL1500_.jpg",
+        "category": "Home",
+    },
+    {
+        "asin": "B0CG9GZ4LK",
+        "brand": "Solo Stove",
+        "product_name": "Bonfire 2.0 Fire Pit",
+        "copy": "Gather around smokeless flames under the stars",
+        "image_url": "https://m.media-amazon.com/images/I/71Mu8b2YQEL._AC_SL1500_.jpg",
+        "category": "Home",
+    },
+    {
+        "asin": "B0931YKS59",
+        "brand": "Beis",
+        "product_name": "The Carry-On Roller",
+        "copy": "Travel smarter with organized luxury at your side",
+        "image_url": "https://m.media-amazon.com/images/I/71hkVRS0GiL._AC_SL1500_.jpg",
+        "category": "Fashion",
+    },
+]

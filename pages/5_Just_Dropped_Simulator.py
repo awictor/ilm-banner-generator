@@ -12,7 +12,8 @@ import streamlit as st
 from PIL import Image
 
 import story_engine
-from shared import image_picker, remove_background, show_offline_banner
+from sample_products import SAMPLE_PRODUCTS
+from shared import image_picker, fetch_image_from_url, remove_background, show_offline_banner
 
 CHANNELS = [
     "@AmazonHome",
@@ -27,6 +28,53 @@ ALL_OPTION = "All Channels"
 show_offline_banner()
 st.title("Just Dropped — Simulator")
 st.caption("Quick preview tool. Add products, pick a channel, generate frames.")
+
+# ── Sample Library ────────────────────────────────────────────────
+with st.expander("Sample Product Library — click to auto-fill slots", expanded=False):
+    st.caption("Pick products to auto-fill the slots below. Image + all fields are loaded automatically.")
+
+    # Category filter
+    categories = sorted(set(p["category"] for p in SAMPLE_PRODUCTS))
+    cat_filter = st.pills("Filter", ["All"] + categories, default="All", key="sim_lib_cat")
+
+    if cat_filter and cat_filter != "All":
+        filtered = [p for p in SAMPLE_PRODUCTS if p["category"] == cat_filter]
+    else:
+        filtered = SAMPLE_PRODUCTS
+
+    lib_cols = st.columns(4)
+    for idx, sample in enumerate(filtered):
+        with lib_cols[idx % 4]:
+            st.image(sample["image_url"], use_container_width=True)
+            st.caption(f"**{sample['brand']}**\n{sample['product_name']}")
+            if st.button("Add", key=f"lib_add_{sample['asin']}"):
+                # Find the first empty slot or append
+                prods = st.session_state.get("sim_products", [])
+                placed = False
+                for p in prods:
+                    if not p.get("product_name") and p.get("image") is None:
+                        p["asin"] = sample["asin"]
+                        p["brand"] = sample["brand"]
+                        p["product_name"] = sample["product_name"]
+                        p["copy"] = sample["copy"]
+                        # Download the image
+                        p["image"] = fetch_image_from_url(sample["image_url"])
+                        placed = True
+                        break
+                if not placed:
+                    # All slots filled — append a new one
+                    img = fetch_image_from_url(sample["image_url"])
+                    prods.append({
+                        "asin": sample["asin"],
+                        "brand": sample["brand"],
+                        "product_name": sample["product_name"],
+                        "copy": sample["copy"],
+                        "image": img,
+                    })
+                st.session_state.sim_products = prods
+                st.rerun()
+
+st.divider()
 
 # ── Settings ──────────────────────────────────────────────────────
 st.subheader("Settings")
@@ -81,12 +129,19 @@ for i in range(num_products):
                 key=f"sim_copy_{i}", height=68
             )
         with right:
-            img = image_picker(
-                f"product {i+1} image",
-                f"sim_img_{i}",
-            )
-            if img:
-                products[i]["image"] = img
+            # Show pre-loaded image if it exists
+            if products[i].get("image") is not None:
+                st.image(products[i]["image"], caption="Loaded from library", width=200)
+                if st.button("Clear image", key=f"sim_clear_{i}"):
+                    products[i]["image"] = None
+                    st.rerun()
+            else:
+                img = image_picker(
+                    f"product {i+1} image",
+                    f"sim_img_{i}",
+                )
+                if img:
+                    products[i]["image"] = img
 
 st.session_state.sim_products = products
 
