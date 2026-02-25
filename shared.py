@@ -137,16 +137,23 @@ def remove_background(img):
     return result.convert("RGBA")
 
 
+@st.cache_data(ttl=600, show_spinner=False)
+def _fetch_image_bytes(url):
+    """Download image bytes with caching so repeat fetches are instant."""
+    resp = requests.get(url, timeout=10, headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/120.0.0.0 Safari/537.36"
+    })
+    resp.raise_for_status()
+    return resp.content
+
+
 def fetch_image_from_url(url):
     """Download an image from a URL and return a PIL Image, or None on failure."""
     try:
-        resp = requests.get(url, timeout=15, headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                          "AppleWebKit/537.36 (KHTML, like Gecko) "
-                          "Chrome/120.0.0.0 Safari/537.36"
-        })
-        resp.raise_for_status()
-        return Image.open(BytesIO(resp.content))
+        data = _fetch_image_bytes(url)
+        return Image.open(BytesIO(data))
     except Exception as e:
         st.error(f"Failed to download image: {e}")
         return None
