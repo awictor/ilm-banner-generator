@@ -16,12 +16,53 @@ BRAVE_API_KEY = os.environ.get("BRAVE_API_KEY", "")
 # ── Offline schedule banner ─────────────────────────────────────
 
 def show_offline_banner():
-    """Display a small info banner about the nightly offline schedule."""
-    st.info(
-        "This application is offline every night from **12 AM to 7 AM Pacific** "
-        "to save costs. If you need it during those hours, let me know and I will "
-        "keep it online those days — @awictor",
-        icon="\u23f0",
+    """Dismissible banner about the nightly offline schedule.
+
+    Uses localStorage so the dismissal persists across sessions.
+    """
+    import streamlit.components.v1 as components
+
+    components.html(
+        """
+        <style>
+            #offline-banner {
+                display: none;
+                align-items: center;
+                gap: 8px;
+                background: #f0f2f6;
+                border-radius: 6px;
+                padding: 6px 12px;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                font-size: 13px;
+                color: #555;
+            }
+            #offline-banner button {
+                background: none;
+                border: none;
+                cursor: pointer;
+                font-size: 14px;
+                color: #999;
+                padding: 0 2px;
+                line-height: 1;
+            }
+            #offline-banner button:hover { color: #333; }
+        </style>
+        <div id="offline-banner">
+            <span style="flex:1">&#9200; Offline nightly 12 &#8211; 7 AM PT to save costs. Need it during those hours? Contact <b>@awictor</b></span>
+            <button onclick="dismiss()">&times;</button>
+        </div>
+        <script>
+            var key = 'ilm_offline_banner_dismissed';
+            function dismiss() {
+                localStorage.setItem(key, '1');
+                document.getElementById('offline-banner').style.display = 'none';
+            }
+            if (!localStorage.getItem(key)) {
+                document.getElementById('offline-banner').style.display = 'flex';
+            }
+        </script>
+        """,
+        height=40,
     )
 
 
