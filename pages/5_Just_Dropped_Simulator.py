@@ -85,6 +85,27 @@ with col_ch:
 with col_theme:
     theme_name = st.text_input("Theme name", value="Just Dropped", key="sim_theme")
 
+st.subheader("Product Effects")
+effect_cols = st.columns(3)
+with effect_cols[0]:
+    fx_shadow = st.toggle("Drop Shadow", value=True, key="fx_shadow")
+    fx_outline = st.toggle("White Outline", value=True, key="fx_outline")
+with effect_cols[1]:
+    fx_glow = st.toggle("Accent Glow", value=False, key="fx_glow")
+    fx_tilt = st.toggle("Subtle Tilt", value=False, key="fx_tilt")
+with effect_cols[2]:
+    fx_sparkles = st.toggle("Sparkles", value=False, key="fx_sparkles")
+    fx_reflection = st.toggle("Reflection", value=False, key="fx_reflection")
+
+effects = {
+    "shadow": fx_shadow,
+    "outline": fx_outline,
+    "glow": fx_glow,
+    "tilt": fx_tilt,
+    "sparkles": fx_sparkles,
+    "reflection": fx_reflection,
+}
+
 num_products = st.slider("Number of products", 1, 9, 4, key="sim_num_products")
 
 st.divider()
@@ -171,7 +192,7 @@ if st.button("Generate Frames", type="primary", disabled=len(ready_products) == 
     with st.spinner(f"Generating {label} frames..."):
         for ch in generate_channels:
             frames = story_engine.generate_franchise_frames(
-                ch, ready_products, theme_name
+                ch, ready_products, theme_name, effects=effects
             )
             all_frames.extend(frames)
 

@@ -17,7 +17,7 @@ from datetime import datetime
 from io import BytesIO
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from banner_engine import hex_to_rgb, remove_white_bg, trim_transparent, fit_image, paste_with_alpha
 
@@ -243,7 +243,6 @@ def _prepare_product(product_image, max_w, max_h):
 
 def _add_drop_shadow(img, offset=(6, 6), blur_radius=12, opacity=60):
     """Add a soft drop shadow behind an RGBA image."""
-    from PIL import ImageFilter
     # Create shadow layer
     shadow = Image.new("RGBA", (img.width + abs(offset[0]) + blur_radius * 2,
                                  img.height + abs(offset[1]) + blur_radius * 2),
@@ -262,6 +261,190 @@ def _add_drop_shadow(img, offset=(6, 6), blur_radius=12, opacity=60):
     oy = blur_radius + max(-offset[1], 0)
     shadow.paste(img, (ox, oy), img)
     return shadow
+
+
+def _add_white_outline(img, thickness=4):
+    """Add a white 'sticker cutout' outline around product silhouette."""
+    img = img.convert("RGBA")
+    pad = thickness * 2
+    new_w = img.width + pad * 2
+    new_h = img.height + pad * 2
+    result = Image.new("RGBA", (new_w, new_h), (0, 0, 0, 0))
+
+    # Dilate the alpha channel to create expanded silhouette
+    alpha = img.split()[3]
+    # Pad alpha into larger canvas
+    alpha_padded = Image.new("L", (new_w, new_h), 0)
+    alpha_padded.paste(alpha, (pad, pad))
+    # MaxFilter with kernel size = 2*thickness+1 dilates the alpha
+    kernel_size = 2 * thickness + 1
+    dilated = alpha_padded.filter(ImageFilter.MaxFilter(kernel_size))
+
+    # Create white silhouette using dilated alpha
+    white_layer = Image.new("RGBA", (new_w, new_h), (255, 255, 255, 255))
+    white_layer.putalpha(dilated)
+
+    # Composite: white outline first, then original on top
+    result = Image.alpha_composite(result, white_layer)
+    result.paste(img, (pad, pad), img)
+    return result
+
+
+def _add_colored_glow(img, color="#000000", radius=20, opacity=80):
+    """Add a soft colored halo/glow behind the product."""
+    img = img.convert("RGBA")
+    rgb = hex_to_rgb(color) if isinstance(color, str) else color
+    pad = radius * 3
+    new_w = img.width + pad * 2
+    new_h = img.height + pad * 2
+    result = Image.new("RGBA", (new_w, new_h), (0, 0, 0, 0))
+
+    # Create colored silhouette from alpha
+    alpha = img.split()[3]
+    alpha_padded = Image.new("L", (new_w, new_h), 0)
+    alpha_padded.paste(alpha, (pad, pad))
+
+    glow_layer = Image.new("RGBA", (new_w, new_h), (*rgb, 0))
+    # Scale alpha for opacity
+    alpha_scaled = alpha_padded.point(lambda p: min(p, opacity))
+    glow_layer.putalpha(alpha_scaled)
+
+    # Blur the glow
+    glow_layer = glow_layer.filter(ImageFilter.GaussianBlur(radius=radius))
+
+    # Composite: glow first, then original on top
+    result = Image.alpha_composite(result, glow_layer)
+    result.paste(img, (pad, pad), img)
+    return result
+
+
+def _add_sparkles(img, count=5, seed=None):
+    """Draw small 4-point star sparkles near the product edges."""
+    img = img.convert("RGBA")
+    rng = random.Random(seed)
+
+    result = img.copy()
+    draw = ImageDraw.Draw(result)
+
+    # Find product bounding box from alpha
+    alpha = img.split()[3]
+    bbox = alpha.getbbox()
+    if not bbox:
+        return result
+
+    x0, y0, x1, y1 = bbox
+    margin = 30  # sparkles near edges, slightly outside
+
+    for _ in range(count):
+        # Place sparkles near edges
+        side = rng.choice(["top", "bottom", "left", "right"])
+        if side == "top":
+            sx = rng.randint(x0 - margin, x1 + margin)
+            sy = rng.randint(max(0, y0 - margin * 2), y0 + margin)
+        elif side == "bottom":
+            sx = rng.randint(x0 - margin, x1 + margin)
+            sy = rng.randint(y1 - margin, min(img.height - 1, y1 + margin * 2))
+        elif side == "left":
+            sx = rng.randint(max(0, x0 - margin * 2), x0 + margin)
+            sy = rng.randint(y0 - margin, y1 + margin)
+        else:
+            sx = rng.randint(x1 - margin, min(img.width - 1, x1 + margin * 2))
+            sy = rng.randint(y0 - margin, y1 + margin)
+
+        # Clamp to image bounds
+        sx = max(2, min(img.width - 3, sx))
+        sy = max(2, min(img.height - 3, sy))
+
+        size = rng.randint(6, 14)
+        spark_opacity = rng.randint(160, 255)
+        color = (255, 255, 255, spark_opacity)
+
+        # Draw 4-point star
+        half = size // 2
+        # Vertical line
+        draw.line([(sx, sy - half), (sx, sy + half)], fill=color, width=2)
+        # Horizontal line
+        draw.line([(sx - half, sy), (sx + half, sy)], fill=color, width=2)
+        # Small diagonal accents
+        d = half // 2
+        draw.line([(sx - d, sy - d), (sx + d, sy + d)], fill=color, width=1)
+        draw.line([(sx + d, sy - d), (sx - d, sy + d)], fill=color, width=1)
+
+    return result
+
+
+def _add_reflection(img, opacity=40, height_frac=0.3):
+    """Add a fading vertical reflection below the product."""
+    img = img.convert("RGBA")
+    refl_h = int(img.height * height_frac)
+    if refl_h < 10:
+        return img
+
+    # Crop bottom portion and flip
+    bottom_strip = img.crop((0, img.height - refl_h, img.width, img.height))
+    reflected = bottom_strip.transpose(Image.FLIP_TOP_BOTTOM)
+
+    # Create gradient alpha fade (full at top -> zero at bottom)
+    grad = Image.new("L", (reflected.width, reflected.height), 0)
+    for y in range(reflected.height):
+        alpha_val = int(opacity * (1.0 - y / reflected.height))
+        for x in range(reflected.width):
+            grad.putpixel((x, y), alpha_val)
+
+    # Multiply reflected alpha with gradient
+    r, g, b, a = reflected.split()
+    # Combine: min of existing alpha and gradient
+    a_arr = np.minimum(np.array(a), np.array(grad)).astype(np.uint8)
+    reflected.putalpha(Image.fromarray(a_arr))
+
+    # Create expanded canvas with gap
+    gap = 6
+    new_h = img.height + gap + reflected.height
+    result = Image.new("RGBA", (img.width, new_h), (0, 0, 0, 0))
+    result.paste(img, (0, 0), img)
+    result.paste(reflected, (0, img.height + gap), reflected)
+
+    return result
+
+
+def _add_tilt(img, max_angle=3.0):
+    """Apply a small random rotation for a casual editorial feel."""
+    angle = random.uniform(-max_angle, max_angle)
+    if abs(angle) < 0.3:
+        angle = max_angle if random.random() > 0.5 else -max_angle
+    return img.rotate(angle, resample=Image.BICUBIC, expand=True,
+                      fillcolor=(0, 0, 0, 0))
+
+
+def _apply_product_effects(img, effects, accent_color="#000000", collage=False):
+    """Apply enabled visual effects to a product image in the correct order.
+
+    effects: dict with keys shadow, outline, glow, tilt, sparkles, reflection (bool values)
+    collage: if True, skip reflection (too cluttered for collage frames)
+
+    Order: outline -> glow -> shadow -> tilt -> sparkles -> reflection
+    """
+    img = img.convert("RGBA")
+
+    if effects.get("outline"):
+        img = _add_white_outline(img, thickness=4)
+
+    if effects.get("glow"):
+        img = _add_colored_glow(img, color=accent_color, radius=20, opacity=80)
+
+    if effects.get("shadow"):
+        img = _add_drop_shadow(img, offset=(6, 6), blur_radius=12, opacity=60)
+
+    if effects.get("tilt"):
+        img = _add_tilt(img, max_angle=3.0)
+
+    if effects.get("sparkles"):
+        img = _add_sparkles(img, count=5)
+
+    if effects.get("reflection") and not collage:
+        img = _add_reflection(img, opacity=40, height_frac=0.3)
+
+    return img
 
 
 def _save_frame(canvas):
@@ -283,7 +466,7 @@ def _pad_products(products, count):
 
 def _scatter_products(canvas, products, positions, circle_color=None,
                       jitter_xy=30, jitter_angle=5, jitter_scale=(0.90, 1.10),
-                      shuffle=True):
+                      shuffle=True, effects=None, accent_color="#000000"):
     """Place products at scattered (x, y, w, h, rotation) positions with randomization.
 
     Each position is (x, y, w, h) or (x, y, w, h, angle).
@@ -331,9 +514,15 @@ def _scatter_products(canvas, products, positions, circle_color=None,
 
         prod_img = _prepare_product(prod_data["image"], sw - 40, sh - 40)
 
-        # Add drop shadow for depth
-        prod_img = _add_drop_shadow(prod_img, offset=(5, 5),
-                                    blur_radius=10, opacity=50)
+        if effects:
+            # Use full effects pipeline (collage=True skips reflection)
+            prod_img = _apply_product_effects(prod_img, effects,
+                                              accent_color=accent_color,
+                                              collage=True)
+        else:
+            # Legacy behavior: just add drop shadow
+            prod_img = _add_drop_shadow(prod_img, offset=(5, 5),
+                                        blur_radius=10, opacity=50)
 
         if abs(angle) > 0.5:
             prod_img = prod_img.rotate(angle, resample=Image.BICUBIC,
@@ -360,7 +549,7 @@ _HOME_COLLAGE_POSITIONS = [
     (500, 400, 240, 300, 15),    # mid-right small accent piece
 ]
 
-def _home_collage(products, theme_name="Just Dropped"):
+def _home_collage(products, theme_name="Just Dropped", effects=None):
     pal = PALETTE["@AmazonHome"]
     bg = hex_to_rgb(pal["bg"])
     wm_color = hex_to_rgb(pal["watermark"])
@@ -374,7 +563,8 @@ def _home_collage(products, theme_name="Just Dropped"):
     _draw_watermark_pattern(draw, "JUST DROPPED", wm_color)
 
     # Scattered products (some overlap into title area for organic feel)
-    _scatter_products(canvas, products, _HOME_COLLAGE_POSITIONS)
+    _scatter_products(canvas, products, _HOME_COLLAGE_POSITIONS,
+                      effects=effects, accent_color=pal["accent"])
 
     # Title block -- centered horizontally & vertically in middle band
     draw = ImageDraw.Draw(canvas)
@@ -393,7 +583,7 @@ def _home_collage(products, theme_name="Just Dropped"):
     return canvas
 
 
-def _home_individual(product_data, frame_num=1):
+def _home_individual(product_data, frame_num=1, effects=None):
     pal = PALETTE["@AmazonHome"]
     bg = hex_to_rgb(pal["bg"])
     wm_color = hex_to_rgb(pal["watermark"])
@@ -407,7 +597,10 @@ def _home_individual(product_data, frame_num=1):
     _draw_watermark_pattern(draw, "JUST DROPPED", wm_color)
 
     # Product centered in upper zone
-    prod_img = _prepare_product(product_data["image"], 620, 820)
+    max_w, max_h = (560, 740) if effects else (620, 820)
+    prod_img = _prepare_product(product_data["image"], max_w, max_h)
+    if effects:
+        prod_img = _apply_product_effects(prod_img, effects, pal["accent"])
     px = (W - prod_img.width) // 2
     py = 320
     paste_with_alpha(canvas, prod_img, (px, py))
@@ -435,7 +628,7 @@ _BEAUTY_COLLAGE_POSITIONS = [
     (260, 380, 280, 320, 12),    # center accent, small, rotated
 ]
 
-def _beauty_collage(products, theme_name="Just Dropped"):
+def _beauty_collage(products, theme_name="Just Dropped", effects=None):
     pal = PALETTE["@AmazonBeauty"]
     bg = hex_to_rgb(pal["bg"])
     txt_color = hex_to_rgb(pal["text"])
@@ -445,7 +638,8 @@ def _beauty_collage(products, theme_name="Just Dropped"):
 
     # Scattered products with mint circles -- behind title
     _scatter_products(canvas, products, _BEAUTY_COLLAGE_POSITIONS,
-                      circle_color=pal["circle"])
+                      circle_color=pal["circle"],
+                      effects=effects, accent_color=pal["accent"])
 
     # Title block -- centered horizontally & vertically in middle band
     draw = ImageDraw.Draw(canvas)
@@ -469,7 +663,7 @@ def _beauty_collage(products, theme_name="Just Dropped"):
     return canvas
 
 
-def _beauty_individual(product_data, frame_num=1):
+def _beauty_individual(product_data, frame_num=1, effects=None):
     pal = PALETTE["@AmazonBeauty"]
     bg = hex_to_rgb(pal["bg_individual"])
     txt_color = hex_to_rgb(pal["text"])
@@ -489,7 +683,10 @@ def _beauty_individual(product_data, frame_num=1):
     )
 
     # Product on the circle
-    prod_img = _prepare_product(product_data["image"], 580, 720)
+    max_w, max_h = (500, 640) if effects else (580, 720)
+    prod_img = _prepare_product(product_data["image"], max_w, max_h)
+    if effects:
+        prod_img = _apply_product_effects(prod_img, effects, pal["accent"])
     px = (W - prod_img.width) // 2
     py = circle_cy - prod_img.height // 2 - 20
     paste_with_alpha(canvas, prod_img, (px, py))
@@ -519,7 +716,7 @@ _FASHION_COLLAGE_POSITIONS = [
     (180, 1200, 280, 340, 14),   # bottom-center accent, rotated
 ]
 
-def _fashion_collage(products, theme_name="Just Dropped"):
+def _fashion_collage(products, theme_name="Just Dropped", effects=None):
     pal = PALETTE["@AmazonFashion"]
     bg = hex_to_rgb(pal["bg"])
     txt_color = hex_to_rgb(pal["text"])
@@ -528,7 +725,8 @@ def _fashion_collage(products, theme_name="Just Dropped"):
     canvas = Image.new("RGB", (W, H), bg)
 
     # Products BEHIND title -- editorial overlap
-    _scatter_products(canvas, products, _FASHION_COLLAGE_POSITIONS)
+    _scatter_products(canvas, products, _FASHION_COLLAGE_POSITIONS,
+                      effects=effects, accent_color=pal["accent"])
 
     # Stacked editorial title -- centered
     draw = ImageDraw.Draw(canvas)
@@ -553,7 +751,7 @@ def _fashion_collage(products, theme_name="Just Dropped"):
     return canvas
 
 
-def _fashion_individual(product_data, frame_num=1):
+def _fashion_individual(product_data, frame_num=1, effects=None):
     pal = PALETTE["@AmazonFashion"]
     bg = hex_to_rgb(pal["bg"])
     txt_color = hex_to_rgb(pal["text"])
@@ -563,7 +761,10 @@ def _fashion_individual(product_data, frame_num=1):
     draw = ImageDraw.Draw(canvas)
 
     # Product -- EXTRA LARGE for fashion editorial feel
-    prod_img = _prepare_product(product_data["image"], 860, 1100)
+    max_w, max_h = (760, 980) if effects else (860, 1100)
+    prod_img = _prepare_product(product_data["image"], max_w, max_h)
+    if effects:
+        prod_img = _apply_product_effects(prod_img, effects, pal["accent"])
     px = (W - prod_img.width) // 2
     py = 200
     paste_with_alpha(canvas, prod_img, (px, py))
@@ -594,7 +795,8 @@ _AMAZON_COLLAGE_POSITIONS = [
     (520, 360, 260, 300, -14),   # mid-right accent, rotated
 ]
 
-def _amazon_collage(products, theme_name="Just Dropped", gradient_idx=0):
+def _amazon_collage(products, theme_name="Just Dropped", gradient_idx=0,
+                    effects=None):
     pal = PALETTE["@Amazon"]
     gradients = pal["gradients"]
     g = gradients[gradient_idx % len(gradients)]
@@ -608,7 +810,8 @@ def _amazon_collage(products, theme_name="Just Dropped", gradient_idx=0):
     _draw_watermark_pattern(draw, "JUST DROPPED", wm_color)
 
     # Scattered products -- overlap into title zone
-    _scatter_products(canvas, products, _AMAZON_COLLAGE_POSITIONS)
+    _scatter_products(canvas, products, _AMAZON_COLLAGE_POSITIONS,
+                      effects=effects, accent_color=pal["accent"])
 
     # Title -- centered
     draw = ImageDraw.Draw(canvas)
@@ -629,7 +832,7 @@ def _amazon_collage(products, theme_name="Just Dropped", gradient_idx=0):
     return canvas
 
 
-def _amazon_individual(product_data, frame_num=1, gradient_idx=0):
+def _amazon_individual(product_data, frame_num=1, gradient_idx=0, effects=None):
     pal = PALETTE["@Amazon"]
     gradients = pal["gradients"]
     g = gradients[gradient_idx % len(gradients)]
@@ -646,7 +849,10 @@ def _amazon_individual(product_data, frame_num=1, gradient_idx=0):
     accent = hex_to_rgb(pal["accent"])
 
     # Product centered
-    prod_img = _prepare_product(product_data["image"], 620, 820)
+    max_w, max_h = (560, 740) if effects else (620, 820)
+    prod_img = _prepare_product(product_data["image"], max_w, max_h)
+    if effects:
+        prod_img = _apply_product_effects(prod_img, effects, pal["accent"])
     px = (W - prod_img.width) // 2
     py = 320
     paste_with_alpha(canvas, prod_img, (px, py))
@@ -673,7 +879,8 @@ _FR_MONTHS = {
     "november": "novembre", "december": "decembre",
 }
 
-def _ca_collage(products, theme_name="Just Dropped", lang="en", gradient_idx=0):
+def _ca_collage(products, theme_name="Just Dropped", lang="en", gradient_idx=0,
+                effects=None):
     pal = PALETTE["@Amazon.ca"]
     gradients = pal["gradients"]
     g = gradients[gradient_idx % len(gradients)]
@@ -687,7 +894,8 @@ def _ca_collage(products, theme_name="Just Dropped", lang="en", gradient_idx=0):
     _draw_watermark_pattern(draw, "JUST DROPPED", wm_color)
 
     # Scattered products
-    _scatter_products(canvas, products, _AMAZON_COLLAGE_POSITIONS)
+    _scatter_products(canvas, products, _AMAZON_COLLAGE_POSITIONS,
+                      effects=effects, accent_color=pal["accent"])
 
     # Title
     draw = ImageDraw.Draw(canvas)
@@ -712,7 +920,8 @@ def _ca_collage(products, theme_name="Just Dropped", lang="en", gradient_idx=0):
     return canvas
 
 
-def _ca_individual(product_data, frame_num=1, lang="en", gradient_idx=0):
+def _ca_individual(product_data, frame_num=1, lang="en", gradient_idx=0,
+                   effects=None):
     pal = PALETTE["@Amazon.ca"]
     gradients = pal["gradients"]
     g = gradients[gradient_idx % len(gradients)]
@@ -729,7 +938,10 @@ def _ca_individual(product_data, frame_num=1, lang="en", gradient_idx=0):
     accent = hex_to_rgb(pal["accent"])
 
     # Product centered
-    prod_img = _prepare_product(product_data["image"], 620, 820)
+    max_w, max_h = (560, 740) if effects else (620, 820)
+    prod_img = _prepare_product(product_data["image"], max_w, max_h)
+    if effects:
+        prod_img = _apply_product_effects(prod_img, effects, pal["accent"])
     px = (W - prod_img.width) // 2
     py = 320
     paste_with_alpha(canvas, prod_img, (px, py))
@@ -800,7 +1012,8 @@ CHANNEL_BUILDERS = {
 }
 
 
-def generate_franchise_frames(channel, products, theme_name="Just Dropped"):
+def generate_franchise_frames(channel, products, theme_name="Just Dropped",
+                              effects=None):
     builders = CHANNEL_BUILDERS[channel]
     results = []
 
@@ -811,12 +1024,14 @@ def generate_franchise_frames(channel, products, theme_name="Just Dropped"):
     if channel in ("@Amazon", "@Amazon.ca"):
         if channel == "@Amazon.ca":
             collage_en = builders["collage"](products, theme_name, lang="en",
-                                             gradient_idx=gradient_idx)
+                                             gradient_idx=gradient_idx,
+                                             effects=effects)
         else:
             collage_en = builders["collage"](products, theme_name,
-                                             gradient_idx=gradient_idx)
+                                             gradient_idx=gradient_idx,
+                                             effects=effects)
     else:
-        collage_en = builders["collage"](products, theme_name)
+        collage_en = builders["collage"](products, theme_name, effects=effects)
 
     collage_buf = _save_frame(collage_en)
     results.append((f"{safe_channel}/Frame_01_Collage.png", collage_buf))
@@ -826,12 +1041,15 @@ def generate_franchise_frames(channel, products, theme_name="Just Dropped"):
         frame_num = i + 1
         if channel == "@Amazon":
             frame = builders["individual"](prod, frame_num=frame_num,
-                                           gradient_idx=(gradient_idx + i) % 6)
+                                           gradient_idx=(gradient_idx + i) % 6,
+                                           effects=effects)
         elif channel == "@Amazon.ca":
             frame = builders["individual"](prod, frame_num=frame_num, lang="en",
-                                           gradient_idx=(gradient_idx + i) % 6)
+                                           gradient_idx=(gradient_idx + i) % 6,
+                                           effects=effects)
         else:
-            frame = builders["individual"](prod, frame_num=frame_num)
+            frame = builders["individual"](prod, frame_num=frame_num,
+                                           effects=effects)
 
         buf = _save_frame(frame)
         results.append((
@@ -849,13 +1067,15 @@ def generate_franchise_frames(channel, products, theme_name="Just Dropped"):
     # @Amazon.ca: French versions
     if channel == "@Amazon.ca":
         collage_fr = builders["collage"](products, theme_name, lang="fr",
-                                         gradient_idx=gradient_idx)
+                                         gradient_idx=gradient_idx,
+                                         effects=effects)
         fr_buf = _save_frame(collage_fr)
         results.append((f"{safe_channel}_FR/Frame_01_Collage.png", fr_buf))
 
         for i, prod in enumerate(products):
             frame_fr = builders["individual"](prod, frame_num=i+1, lang="fr",
-                                              gradient_idx=(gradient_idx + i) % 6)
+                                              gradient_idx=(gradient_idx + i) % 6,
+                                              effects=effects)
             buf_fr = _save_frame(frame_fr)
             results.append((
                 f"{safe_channel}_FR/Frame_{i+2:02d}_{prod.get('asin', f'Product_{i+1}')}.png",
