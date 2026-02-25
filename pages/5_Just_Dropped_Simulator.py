@@ -86,16 +86,22 @@ with col_theme:
     theme_name = st.text_input("Theme name", value="Just Dropped", key="sim_theme")
 
 st.subheader("Product Effects")
-effect_cols = st.columns(3)
+effect_cols = st.columns(4)
 with effect_cols[0]:
     fx_shadow = st.toggle("Drop Shadow", value=True, key="fx_shadow")
     fx_outline = st.toggle("White Outline", value=True, key="fx_outline")
+    fx_float = st.toggle("Float Shadow", value=False, key="fx_float",
+                         help="Levitation shadow (replaces drop shadow)")
 with effect_cols[1]:
     fx_glow = st.toggle("Accent Glow", value=False, key="fx_glow")
+    fx_neon = st.toggle("Neon Border", value=False, key="fx_neon")
     fx_tilt = st.toggle("Subtle Tilt", value=False, key="fx_tilt")
 with effect_cols[2]:
     fx_sparkles = st.toggle("Sparkles", value=False, key="fx_sparkles")
     fx_reflection = st.toggle("Reflection", value=False, key="fx_reflection")
+    fx_polaroid = st.toggle("Polaroid Frame", value=False, key="fx_polaroid")
+with effect_cols[3]:
+    fx_noise = st.toggle("Noise/Grain", value=False, key="fx_noise")
 
 effects = {
     "shadow": fx_shadow,
@@ -104,9 +110,18 @@ effects = {
     "tilt": fx_tilt,
     "sparkles": fx_sparkles,
     "reflection": fx_reflection,
+    "float_shadow": fx_float,
+    "neon_border": fx_neon,
+    "polaroid": fx_polaroid,
+    "noise": fx_noise,
 }
 
-num_products = st.slider("Number of products", 1, 9, 4, key="sim_num_products")
+layout_col, num_col = st.columns(2)
+with layout_col:
+    layout_options = list(story_engine.COLLAGE_LAYOUTS.keys())
+    layout_style = st.selectbox("Collage Layout", layout_options, key="sim_layout")
+with num_col:
+    num_products = st.slider("Number of products", 1, 9, 4, key="sim_num_products")
 
 st.divider()
 
@@ -192,7 +207,8 @@ if st.button("Generate Frames", type="primary", disabled=len(ready_products) == 
     with st.spinner(f"Generating {label} frames..."):
         for ch in generate_channels:
             frames = story_engine.generate_franchise_frames(
-                ch, ready_products, theme_name, effects=effects
+                ch, ready_products, theme_name, effects=effects,
+                layout=layout_style
             )
             all_frames.extend(frames)
 

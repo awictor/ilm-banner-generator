@@ -416,24 +416,160 @@ def _add_tilt(img, max_angle=3.0):
                       fillcolor=(0, 0, 0, 0))
 
 
+def _add_float_shadow(img, blur_radius=18, opacity=45, gap=20):
+    """Add a separated shadow below the product for a levitation effect."""
+    img = img.convert("RGBA")
+    alpha = img.split()[3]
+
+    # Shadow canvas with room below
+    pad = blur_radius * 2
+    new_w = img.width + pad * 2
+    new_h = img.height + gap + blur_radius * 3 + pad
+    result = Image.new("RGBA", (new_w, new_h), (0, 0, 0, 0))
+
+    # Create a squashed shadow silhouette (compress vertically for floor shadow)
+    squash = 0.15
+    shadow_h = max(10, int(img.height * squash))
+    alpha_squashed = alpha.resize((img.width, shadow_h), Image.LANCZOS)
+    shadow_layer = Image.new("RGBA", (img.width, shadow_h), (0, 0, 0, opacity))
+    shadow_layer.putalpha(alpha_squashed)
+
+    # Place shadow below product
+    sx = pad
+    sy = pad + img.height + gap
+    result.paste(shadow_layer, (sx, sy), shadow_layer)
+    result = result.filter(ImageFilter.GaussianBlur(radius=blur_radius))
+
+    # Paste original on top (sharp)
+    result.paste(img, (pad, pad), img)
+    return result
+
+
+def _add_polaroid_frame(img, border=16, bottom_extra=40, radius=12):
+    """Add a white polaroid/card frame behind the product with rounded corners."""
+    img = img.convert("RGBA")
+    bbox = img.split()[3].getbbox()
+    if not bbox:
+        return img
+
+    x0, y0, x1, y1 = bbox
+    # Frame rectangle around the product bounding box
+    frame_x0 = x0 - border
+    frame_y0 = y0 - border
+    frame_x1 = x1 + border
+    frame_y1 = y1 + border + bottom_extra
+
+    new_w = img.width + border * 2
+    new_h = img.height + border + bottom_extra
+    result = Image.new("RGBA", (new_w, new_h), (0, 0, 0, 0))
+
+    # Draw white rounded rectangle
+    frame_draw = ImageDraw.Draw(result)
+    fx0 = frame_x0 + border
+    fy0 = frame_y0 + border
+    fx1 = frame_x1 + border
+    fy1 = frame_y1 + border
+    # Clamp to canvas
+    fx0 = max(0, fx0)
+    fy0 = max(0, fy0)
+    fx1 = min(new_w, fx1)
+    fy1 = min(new_h, fy1)
+    frame_draw.rounded_rectangle([fx0, fy0, fx1, fy1], radius=radius,
+                                  fill=(255, 255, 255, 240))
+
+    # Paste product on top
+    result.paste(img, (border, border), img)
+    return result
+
+
+def _add_noise_grain(img, intensity=25):
+    """Add subtle film grain/noise texture over the product."""
+    img = img.convert("RGBA")
+    result = img.copy()
+
+    # Generate noise array matching image size
+    noise = np.random.normal(0, intensity, (img.height, img.width)).astype(np.int16)
+
+    # Apply noise to RGB channels only where alpha > 0
+    arr = np.array(result)
+    alpha_mask = arr[:, :, 3] > 0
+    for c in range(3):
+        channel = arr[:, :, c].astype(np.int16)
+        channel[alpha_mask] += noise[alpha_mask]
+        arr[:, :, c] = np.clip(channel, 0, 255).astype(np.uint8)
+
+    return Image.fromarray(arr, "RGBA")
+
+
+def _add_neon_border(img, color="#000000", thickness=3, glow_radius=6, opacity=200):
+    """Add a thin bright glowing line tracing the product silhouette."""
+    img = img.convert("RGBA")
+    rgb = hex_to_rgb(color) if isinstance(color, str) else color
+    pad = glow_radius * 3 + thickness
+    new_w = img.width + pad * 2
+    new_h = img.height + pad * 2
+    result = Image.new("RGBA", (new_w, new_h), (0, 0, 0, 0))
+
+    # Create dilated and eroded alpha to find the border region
+    alpha = img.split()[3]
+    alpha_padded = Image.new("L", (new_w, new_h), 0)
+    alpha_padded.paste(alpha, (pad, pad))
+
+    outer_k = 2 * thickness + 1
+    outer = alpha_padded.filter(ImageFilter.MaxFilter(outer_k))
+    # Border = outer minus original alpha
+    outer_arr = np.array(outer, dtype=np.int16)
+    inner_arr = np.array(alpha_padded, dtype=np.int16)
+    border_arr = np.clip(outer_arr - inner_arr, 0, 255).astype(np.uint8)
+    border_mask = Image.fromarray(border_arr)
+
+    # Bright neon line layer
+    neon_line = Image.new("RGBA", (new_w, new_h), (*rgb, opacity))
+    neon_line.putalpha(border_mask)
+
+    # Glow layer: blur the neon line for glow effect
+    glow = neon_line.copy()
+    glow = glow.filter(ImageFilter.GaussianBlur(radius=glow_radius))
+
+    # Composite: glow behind, neon line on top, then product
+    result = Image.alpha_composite(result, glow)
+    result = Image.alpha_composite(result, neon_line)
+    result.paste(img, (pad, pad), img)
+    return result
+
+
 def _apply_product_effects(img, effects, accent_color="#000000", collage=False):
     """Apply enabled visual effects to a product image in the correct order.
 
-    effects: dict with keys shadow, outline, glow, tilt, sparkles, reflection (bool values)
+    effects: dict with bool values for each effect key
     collage: if True, skip reflection (too cluttered for collage frames)
 
-    Order: outline -> glow -> shadow -> tilt -> sparkles -> reflection
+    Order: polaroid -> outline -> neon_border -> glow -> shadow/float_shadow
+           -> noise -> tilt -> sparkles -> reflection
     """
     img = img.convert("RGBA")
+
+    if effects.get("polaroid"):
+        img = _add_polaroid_frame(img, border=16, bottom_extra=40)
 
     if effects.get("outline"):
         img = _add_white_outline(img, thickness=4)
 
+    if effects.get("neon_border"):
+        img = _add_neon_border(img, color=accent_color, thickness=3,
+                               glow_radius=6, opacity=200)
+
     if effects.get("glow"):
         img = _add_colored_glow(img, color=accent_color, radius=20, opacity=80)
 
-    if effects.get("shadow"):
+    # Float shadow and drop shadow are mutually exclusive; float takes priority
+    if effects.get("float_shadow"):
+        img = _add_float_shadow(img, blur_radius=18, opacity=45, gap=20)
+    elif effects.get("shadow"):
         img = _add_drop_shadow(img, offset=(6, 6), blur_radius=12, opacity=60)
+
+    if effects.get("noise"):
+        img = _add_noise_grain(img, intensity=25)
 
     if effects.get("tilt"):
         img = _add_tilt(img, max_angle=3.0)
@@ -534,23 +670,58 @@ def _scatter_products(canvas, products, positions, circle_color=None,
 
 
 # ==============================================================================
+# Collage layout presets (title zone ~800-1150 kept clear)
+# Format: (x, y, w, h, rotation_degrees)
+# ==============================================================================
+
+_LAYOUT_ORGANIC_CLUSTER = [
+    # Top cluster — staggered heights, varied sizes
+    (-30, -30, 400, 500, -10),    # top-left, large, bleeds off edge
+    (320, 60, 320, 380, 6),       # top-center, medium, offset lower
+    (620, -50, 460, 540, 8),      # top-right, large, bleeds top
+    (160, 380, 220, 260, -14),    # mid-left, small accent
+    # Bottom cluster — staggered, below title
+    (-20, 1180, 440, 500, 7),     # bottom-left, large, bleeds edge
+    (380, 1260, 340, 400, -5),    # bottom-center, offset lower
+    (700, 1160, 400, 480, -9),    # bottom-right, large
+    (240, 1520, 240, 280, 12),    # bottom-center-low, small accent
+]
+
+_LAYOUT_HERO_ASYMMETRIC = [
+    # One hero product dominates
+    (180, -20, 720, 740, -3),     # top-center HERO, huge
+    # Supporting items — asymmetric, varied sizes
+    (-40, 380, 260, 320, 12),     # left accent, small, rotated
+    (820, 300, 240, 300, -8),     # right accent, small
+    (-30, 1180, 480, 500, 6),     # bottom-left, large
+    (440, 1240, 360, 420, -7),    # bottom-center
+    (760, 1160, 340, 440, 10),    # bottom-right
+    (600, 1500, 220, 260, -15),   # bottom low accent
+]
+
+_LAYOUT_DIAGONAL_SCATTER = [
+    # Products flow along a diagonal / S-curve with edge bleeds
+    (-40, -40, 420, 480, -12),    # top-left, bleeds corner
+    (560, 80, 520, 560, 5),       # top-right, large, tilted
+    (780, 500, 300, 340, -10),    # mid-right, small
+    (-30, 440, 280, 320, 15),     # mid-left, small, rotated
+    (60, 1180, 500, 520, 8),      # bottom-left, large
+    (520, 1220, 540, 500, -6),    # bottom-right, large
+    (300, 1540, 260, 280, 12),    # bottom-center-low, accent
+]
+
+COLLAGE_LAYOUTS = {
+    "Organic Cluster": _LAYOUT_ORGANIC_CLUSTER,
+    "Hero + Asymmetric": _LAYOUT_HERO_ASYMMETRIC,
+    "Diagonal Scatter": _LAYOUT_DIAGONAL_SCATTER,
+}
+
+
+# ==============================================================================
 # @AmazonHome -- Warm beige/cream with watermark pattern
 # ==============================================================================
 
-# Collage: scattered products with rotation, varying sizes
-# Format: (x, y, w, h, rotation_degrees)
-# Title zone ~800-1150 is kept clear for text readability
-_HOME_COLLAGE_POSITIONS = [
-    (10, -20, 420, 520, -8),     # top-left, large, tilted left
-    (340, 20, 340, 420, 5),      # top-center, medium, slight tilt
-    (650, -40, 420, 500, 12),    # top-right, large, tilted right
-    (-20, 1200, 400, 480, 6),    # bottom-left, below title
-    (340, 1240, 380, 440, -4),   # bottom-center, below title
-    (700, 1180, 380, 480, -10),  # bottom-right, below title
-    (780, 480, 240, 280, 15),    # mid-right small accent piece
-]
-
-def _home_collage(products, theme_name="Just Dropped", effects=None):
+def _home_collage(products, theme_name="Just Dropped", effects=None, layout=None):
     pal = PALETTE["@AmazonHome"]
     bg = hex_to_rgb(pal["bg"])
     wm_color = hex_to_rgb(pal["watermark"])
@@ -563,8 +734,9 @@ def _home_collage(products, theme_name="Just Dropped", effects=None):
     # Watermark pattern
     _draw_watermark_pattern(draw, "JUST DROPPED", wm_color)
 
-    # Scattered products (some overlap into title area for organic feel)
-    _scatter_products(canvas, products, _HOME_COLLAGE_POSITIONS,
+    # Scattered products
+    positions = COLLAGE_LAYOUTS.get(layout, _LAYOUT_ORGANIC_CLUSTER)
+    _scatter_products(canvas, products, positions,
                       effects=effects, accent_color=pal["accent"])
 
     # Title block -- centered horizontally & vertically in middle band
@@ -630,7 +802,7 @@ _BEAUTY_COLLAGE_POSITIONS = [
     (760, 420, 260, 300, 12),    # right accent, small, rotated
 ]
 
-def _beauty_collage(products, theme_name="Just Dropped", effects=None):
+def _beauty_collage(products, theme_name="Just Dropped", effects=None, layout=None):
     pal = PALETTE["@AmazonBeauty"]
     bg = hex_to_rgb(pal["bg"])
     txt_color = hex_to_rgb(pal["text"])
@@ -639,7 +811,8 @@ def _beauty_collage(products, theme_name="Just Dropped", effects=None):
     canvas = Image.new("RGB", (W, H), bg)
 
     # Scattered products with mint circles -- behind title
-    _scatter_products(canvas, products, _BEAUTY_COLLAGE_POSITIONS,
+    positions = COLLAGE_LAYOUTS.get(layout, _LAYOUT_ORGANIC_CLUSTER)
+    _scatter_products(canvas, products, positions,
                       circle_color=pal["circle"],
                       effects=effects, accent_color=pal["accent"])
 
@@ -719,7 +892,7 @@ _FASHION_COLLAGE_POSITIONS = [
     (180, 1460, 280, 340, 14),   # bottom-center accent, rotated
 ]
 
-def _fashion_collage(products, theme_name="Just Dropped", effects=None):
+def _fashion_collage(products, theme_name="Just Dropped", effects=None, layout=None):
     pal = PALETTE["@AmazonFashion"]
     bg = hex_to_rgb(pal["bg"])
     txt_color = hex_to_rgb(pal["text"])
@@ -727,8 +900,9 @@ def _fashion_collage(products, theme_name="Just Dropped", effects=None):
 
     canvas = Image.new("RGB", (W, H), bg)
 
-    # Products BEHIND title -- editorial overlap
-    _scatter_products(canvas, products, _FASHION_COLLAGE_POSITIONS,
+    # Products around title
+    positions = COLLAGE_LAYOUTS.get(layout, _LAYOUT_ORGANIC_CLUSTER)
+    _scatter_products(canvas, products, positions,
                       effects=effects, accent_color=pal["accent"])
 
     # Stacked editorial title -- centered
@@ -800,7 +974,7 @@ _AMAZON_COLLAGE_POSITIONS = [
 ]
 
 def _amazon_collage(products, theme_name="Just Dropped", gradient_idx=0,
-                    effects=None):
+                    effects=None, layout=None):
     pal = PALETTE["@Amazon"]
     gradients = pal["gradients"]
     g = gradients[gradient_idx % len(gradients)]
@@ -813,8 +987,9 @@ def _amazon_collage(products, theme_name="Just Dropped", gradient_idx=0,
     wm_color = hex_to_rgb(wm_colors[gradient_idx % len(wm_colors)])
     _draw_watermark_pattern(draw, "JUST DROPPED", wm_color)
 
-    # Scattered products -- below title zone
-    _scatter_products(canvas, products, _AMAZON_COLLAGE_POSITIONS,
+    # Scattered products
+    positions = COLLAGE_LAYOUTS.get(layout, _LAYOUT_ORGANIC_CLUSTER)
+    _scatter_products(canvas, products, positions,
                       effects=effects, accent_color=pal["accent"])
 
     # Title -- centered
@@ -884,7 +1059,7 @@ _FR_MONTHS = {
 }
 
 def _ca_collage(products, theme_name="Just Dropped", lang="en", gradient_idx=0,
-                effects=None):
+                effects=None, layout=None):
     pal = PALETTE["@Amazon.ca"]
     gradients = pal["gradients"]
     g = gradients[gradient_idx % len(gradients)]
@@ -898,7 +1073,8 @@ def _ca_collage(products, theme_name="Just Dropped", lang="en", gradient_idx=0,
     _draw_watermark_pattern(draw, "JUST DROPPED", wm_color)
 
     # Scattered products
-    _scatter_products(canvas, products, _AMAZON_COLLAGE_POSITIONS,
+    positions = COLLAGE_LAYOUTS.get(layout, _LAYOUT_ORGANIC_CLUSTER)
+    _scatter_products(canvas, products, positions,
                       effects=effects, accent_color=pal["accent"])
 
     # Title
@@ -1017,7 +1193,7 @@ CHANNEL_BUILDERS = {
 
 
 def generate_franchise_frames(channel, products, theme_name="Just Dropped",
-                              effects=None):
+                              effects=None, layout=None):
     builders = CHANNEL_BUILDERS[channel]
     results = []
 
@@ -1029,13 +1205,14 @@ def generate_franchise_frames(channel, products, theme_name="Just Dropped",
         if channel == "@Amazon.ca":
             collage_en = builders["collage"](products, theme_name, lang="en",
                                              gradient_idx=gradient_idx,
-                                             effects=effects)
+                                             effects=effects, layout=layout)
         else:
             collage_en = builders["collage"](products, theme_name,
                                              gradient_idx=gradient_idx,
-                                             effects=effects)
+                                             effects=effects, layout=layout)
     else:
-        collage_en = builders["collage"](products, theme_name, effects=effects)
+        collage_en = builders["collage"](products, theme_name, effects=effects,
+                                         layout=layout)
 
     collage_buf = _save_frame(collage_en)
     results.append((f"{safe_channel}/Frame_01_Collage.png", collage_buf))
@@ -1072,7 +1249,7 @@ def generate_franchise_frames(channel, products, theme_name="Just Dropped",
     if channel == "@Amazon.ca":
         collage_fr = builders["collage"](products, theme_name, lang="fr",
                                          gradient_idx=gradient_idx,
-                                         effects=effects)
+                                         effects=effects, layout=layout)
         fr_buf = _save_frame(collage_fr)
         results.append((f"{safe_channel}_FR/Frame_01_Collage.png", fr_buf))
 
