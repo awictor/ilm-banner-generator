@@ -29,6 +29,10 @@ DEFAULT_HEADLINE_LAYOUT = {
     "pad_pct": 14.0,
     "logo_scale": 100,
     "prod_scale": 100,
+    # Product 2 defaults (used when two_products is True)
+    "prod2_center_pct": 73.0,
+    "prod2_width_pct": 12.0,
+    "prod2_scale": 100,
 }
 
 DEFAULT_COMPACT_LAYOUT = {
@@ -40,6 +44,10 @@ DEFAULT_COMPACT_LAYOUT = {
     "pad_pct": 14.0,
     "logo_scale": 100,
     "prod_scale": 100,
+    # Product 2 defaults (used when two_products is True)
+    "prod2_center_pct": 54.0,
+    "prod2_width_pct": 16.0,
+    "prod2_scale": 100,
 }
 
 
@@ -118,7 +126,7 @@ def _build_headline_banner(w, h, cfg, lang, layout=None):
     draw.text((hl_l, top_y), noa_txt, font=noa_font, fill=txt)
     draw.text((hl_l, top_y + noa_h + gap), hl_txt, font=hl_font, fill=txt)
 
-    # Product image
+    # Product image 1
     prod = cfg["product_image"].convert("RGBA")
     prod = trim_transparent(prod)
     max_prod_w = max(1, int((prod_r - prod_l) * prod_scale))
@@ -126,6 +134,19 @@ def _build_headline_banner(w, h, cfg, lang, layout=None):
     prod = fit_image(prod, max_prod_w, max_prod_h)
     px = prod_center - prod.width // 2
     paste_with_alpha(banner, prod, (px, (h - prod.height) // 2))
+
+    # Product image 2 (optional)
+    if cfg.get("product_image_2") is not None:
+        p2_center = int(w * layout.get("prod2_center_pct", 73.0) / 100)
+        p2_half = int(w * layout.get("prod2_width_pct", 12.0) / 100 / 2)
+        p2_scale = layout.get("prod2_scale", 100) / 100
+        prod2 = cfg["product_image_2"].convert("RGBA")
+        prod2 = trim_transparent(prod2)
+        max_p2_w = max(1, int((p2_half * 2) * p2_scale))
+        max_p2_h = max(1, int((h - 4) * p2_scale))
+        prod2 = fit_image(prod2, max_p2_w, max_p2_h)
+        p2x = p2_center - prod2.width // 2
+        paste_with_alpha(banner, prod2, (p2x, (h - prod2.height) // 2))
 
     # CTA
     draw = ImageDraw.Draw(banner)
@@ -182,7 +203,7 @@ def _build_compact_banner(w, h, cfg, lang, layout=None):
     logo_x = logo_l + (logo_r - logo_l - logo.width) // 2
     paste_with_alpha(banner, logo, (logo_x, (h - logo.height) // 2))
 
-    # Product image
+    # Product image 1
     prod = cfg["product_image"].convert("RGBA")
     prod = trim_transparent(prod)
     max_prod_w = max(1, int((prod_r - prod_l) * prod_scale))
@@ -190,6 +211,19 @@ def _build_compact_banner(w, h, cfg, lang, layout=None):
     prod = fit_image(prod, max_prod_w, max_prod_h)
     px = prod_center - prod.width // 2
     paste_with_alpha(banner, prod, (px, (h - prod.height) // 2))
+
+    # Product image 2 (optional)
+    if cfg.get("product_image_2") is not None:
+        p2_center = int(w * layout.get("prod2_center_pct", 54.0) / 100)
+        p2_half = int(w * layout.get("prod2_width_pct", 16.0) / 100 / 2)
+        p2_scale = layout.get("prod2_scale", 100) / 100
+        prod2 = cfg["product_image_2"].convert("RGBA")
+        prod2 = trim_transparent(prod2)
+        max_p2_w = max(1, int((p2_half * 2) * p2_scale))
+        max_p2_h = max(1, int((h - 4) * p2_scale))
+        prod2 = fit_image(prod2, max_p2_w, max_p2_h)
+        p2x = p2_center - prod2.width // 2
+        paste_with_alpha(banner, prod2, (p2x, (h - prod2.height) // 2))
 
     # CTA
     draw = ImageDraw.Draw(banner)
@@ -213,13 +247,26 @@ def _build_hqp(cfg):
     """75x75 square — no slider controls needed."""
     bg = hex_to_rgb(cfg["bg_color_hex"])
     banner = Image.new("RGB", (75, 75), bg)
-    prod = cfg["product_image"].convert("RGBA")
-    prod = trim_transparent(prod)
     pad = 4
-    prod = fit_image(prod, 75 - pad * 2, 75 - pad * 2)
-    px = (75 - prod.width) // 2
-    py = (75 - prod.height) // 2
-    paste_with_alpha(banner, prod, (px, py))
+
+    if cfg.get("product_image_2") is not None:
+        # Two products side by side
+        half_w = (75 - pad * 3) // 2  # pad | prod1 | pad | prod2 | pad
+        for i, key in enumerate(["product_image", "product_image_2"]):
+            prod = cfg[key].convert("RGBA")
+            prod = trim_transparent(prod)
+            prod = fit_image(prod, half_w, 75 - pad * 2)
+            px = pad + i * (half_w + pad) + (half_w - prod.width) // 2
+            py = (75 - prod.height) // 2
+            paste_with_alpha(banner, prod, (px, py))
+    else:
+        prod = cfg["product_image"].convert("RGBA")
+        prod = trim_transparent(prod)
+        prod = fit_image(prod, 75 - pad * 2, 75 - pad * 2)
+        px = (75 - prod.width) // 2
+        py = (75 - prod.height) // 2
+        paste_with_alpha(banner, prod, (px, py))
+
     return banner
 
 

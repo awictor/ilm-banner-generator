@@ -17,14 +17,23 @@ from shared import image_picker, show_offline_banner
 show_offline_banner()
 st.title("ILM Banner Generator — With Sliders")
 
+two_products = st.toggle("Two Product Images", value=False, key="sl_two_products",
+                          help="Enable to place a second product image on the banner")
+
 left, right = st.columns(2)
 
 with left:
     st.subheader("Logo")
     logo_img = image_picker("brand logo (PNG)", "sl_logo")
 
-    st.subheader("Product Image")
+    st.subheader("Product Image 1")
     product_img = image_picker("product image (PNG)", "sl_product")
+
+    if two_products:
+        st.subheader("Product Image 2")
+        product_img_2 = image_picker("second product image (PNG)", "sl_product2")
+    else:
+        product_img_2 = None
 
 with right:
     st.subheader("Brand Details")
@@ -57,13 +66,22 @@ with tab_hl:
         hl_text_right = st.slider("End %", 30.0, 70.0, 55.0, 0.5, key="hl_txt_r")
 
     with c2:
-        st.markdown("**Product Image**")
-        hl_prod_center = st.slider("Center position %", 35.0, 85.0, 66.5, 0.5, key="hl_prod_c")
-        hl_prod_width = st.slider("Width %", 5.0, 35.0, 15.0, 0.5, key="hl_prod_w")
+        st.markdown("**Product Image 1**")
+        hl_prod_default = 60.0 if two_products else 66.5
+        hl_pw_default = 12.0 if two_products else 15.0
+        hl_prod_center = st.slider("Center position %", 35.0, 85.0, hl_prod_default, 0.5, key="hl_prod_c")
+        hl_prod_width = st.slider("Width %", 5.0, 35.0, hl_pw_default, 0.5, key="hl_prod_w")
         hl_prod_scale = st.slider("Product size %", 50, 150, 100, 5, key="hl_prod_s")
 
+        if two_products:
+            st.markdown("**Product Image 2**")
+            hl_prod2_center = st.slider("Center position %", 35.0, 95.0, 73.0, 0.5, key="hl_prod2_c")
+            hl_prod2_width = st.slider("Width %", 5.0, 35.0, 12.0, 0.5, key="hl_prod2_w")
+            hl_prod2_scale = st.slider("Product 2 size %", 50, 150, 100, 5, key="hl_prod2_s")
+
         st.markdown("**CTA (Shop link)**")
-        hl_cta_left = st.slider("Start %", 55.0, 95.0, 78.0, 0.5, key="hl_cta_l")
+        hl_cta_default = 82.0 if two_products else 78.0
+        hl_cta_left = st.slider("Start %", 55.0, 95.0, hl_cta_default, 0.5, key="hl_cta_l")
 
         st.markdown("**Padding**")
         hl_pad = st.slider("Vertical padding %", 5.0, 25.0, 14.0, 0.5, key="hl_pad")
@@ -80,6 +98,10 @@ with tab_hl:
         "logo_scale": hl_logo_scale,
         "prod_scale": hl_prod_scale,
     }
+    if two_products:
+        hl_layout["prod2_center_pct"] = hl_prod2_center
+        hl_layout["prod2_width_pct"] = hl_prod2_width
+        hl_layout["prod2_scale"] = hl_prod2_scale
 
 with tab_compact:
     st.markdown("Adjust positioning for the **640x90** banners (no headline text).")
@@ -93,13 +115,22 @@ with tab_compact:
         cp_logo_scale = st.slider("Logo size %", 50, 150, 100, 5, key="cp_logo_s")
 
     with c2:
-        st.markdown("**Product Image**")
-        cp_prod_center = st.slider("Center position %", 20.0, 70.0, 45.0, 0.5, key="cp_prod_c")
-        cp_prod_width = st.slider("Width %", 8.0, 40.0, 24.0, 0.5, key="cp_prod_w")
+        st.markdown("**Product Image 1**")
+        cp_prod_default = 38.0 if two_products else 45.0
+        cp_pw_default = 16.0 if two_products else 24.0
+        cp_prod_center = st.slider("Center position %", 20.0, 70.0, cp_prod_default, 0.5, key="cp_prod_c")
+        cp_prod_width = st.slider("Width %", 8.0, 40.0, cp_pw_default, 0.5, key="cp_prod_w")
         cp_prod_scale = st.slider("Product size %", 50, 150, 100, 5, key="cp_prod_s")
 
+        if two_products:
+            st.markdown("**Product Image 2**")
+            cp_prod2_center = st.slider("Center position %", 25.0, 75.0, 54.0, 0.5, key="cp_prod2_c")
+            cp_prod2_width = st.slider("Width %", 8.0, 35.0, 16.0, 0.5, key="cp_prod2_w")
+            cp_prod2_scale = st.slider("Product 2 size %", 50, 150, 100, 5, key="cp_prod2_s")
+
         st.markdown("**CTA (Shop link)**")
-        cp_cta_left = st.slider("Start %", 40.0, 90.0, 64.0, 0.5, key="cp_cta_l")
+        cp_cta_default = 68.0 if two_products else 64.0
+        cp_cta_left = st.slider("Start %", 40.0, 90.0, cp_cta_default, 0.5, key="cp_cta_l")
 
         st.markdown("**Padding**")
         cp_pad = st.slider("Vertical padding %", 5.0, 25.0, 14.0, 0.5, key="cp_pad")
@@ -114,6 +145,10 @@ with tab_compact:
         "logo_scale": cp_logo_scale,
         "prod_scale": cp_prod_scale,
     }
+    if two_products:
+        compact_layout["prod2_center_pct"] = cp_prod2_center
+        compact_layout["prod2_width_pct"] = cp_prod2_width
+        compact_layout["prod2_scale"] = cp_prod2_scale
 
 st.divider()
 
@@ -123,7 +158,8 @@ ready = (logo_img is not None
          and brand_name
          and brand_abbrev
          and headline_eng
-         and headline_esp)
+         and headline_esp
+         and (not two_products or product_img_2 is not None))
 
 if ready:
     cfg = {
@@ -131,6 +167,7 @@ if ready:
         "brand_abbrev": brand_abbrev,
         "logo_image": logo_img,
         "product_image": product_img,
+        "product_image_2": product_img_2 if two_products else None,
         "headline_eng": headline_eng,
         "headline_esp": headline_esp,
         "bg_color_hex": bg_color,
@@ -184,4 +221,7 @@ if ready:
             type="primary",
         )
 else:
-    st.info("Fill in all fields above to see a live preview.")
+    msg = "Fill in all fields above to see a live preview."
+    if two_products and product_img_2 is None:
+        msg += " (Product Image 2 is required when two-product mode is on.)"
+    st.info(msg)
