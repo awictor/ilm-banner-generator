@@ -113,8 +113,8 @@ def _build_headline_banner(w, h, cfg, lang):
     [ Logo ]  [ 'New on Amazon!' + Headline ]  [ Product ]  [ CTA ]
     """
     bg = hex_to_rgb(cfg["bg_color_hex"])
-    txt = hex_to_rgb(TEXT_COLOR)
-    cta = hex_to_rgb(CTA_COLOR)
+    txt = hex_to_rgb(cfg.get("text_color_hex", TEXT_COLOR))
+    cta = hex_to_rgb(cfg.get("cta_color_hex", CTA_COLOR))
 
     banner = Image.new("RGB", (w, h), bg)
     draw = ImageDraw.Draw(banner)
@@ -205,7 +205,7 @@ def _build_compact_banner(w, h, cfg, lang):
     [ Logo ]  [ Product ]  [ CTA ]
     """
     bg = hex_to_rgb(cfg["bg_color_hex"])
-    cta = hex_to_rgb(CTA_COLOR)
+    cta = hex_to_rgb(cfg.get("cta_color_hex", CTA_COLOR))
 
     banner = Image.new("RGB", (w, h), bg)
     draw = ImageDraw.Draw(banner)

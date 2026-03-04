@@ -33,6 +33,22 @@ with right:
     headline_fra = st.text_input("French headline", placeholder="e.g. Activateur de la motilite par Dr. Rajsree", key="ca_headline_fra")
     bg_color = st.color_picker("Background color", value="#d9f69e", key="ca_bg_color")
 
+    st.markdown("**Text Colors**")
+    _presets = {"Black": "#000000", "White": "#FFFFFF", "Navy": "#1B2A4A", "Dark Gray": "#333333"}
+    tc1, tc2 = st.columns(2)
+    with tc1:
+        hl_preset = st.selectbox("Headline preset", list(_presets.keys()) + ["Custom"], key="ca_hl_preset")
+        if hl_preset == "Custom":
+            text_color = st.color_picker("Headline color", value="#000000", key="ca_hl_color")
+        else:
+            text_color = _presets[hl_preset]
+    with tc2:
+        cta_preset = st.selectbox("CTA preset", list(_presets.keys()) + ["Custom"], key="ca_cta_preset")
+        if cta_preset == "Custom":
+            cta_color = st.color_picker("CTA color", value="#000000", key="ca_cta_color")
+        else:
+            cta_color = _presets[cta_preset]
+
 st.divider()
 
 # ── Generate ─────────────────────────────────────────────────────
@@ -52,6 +68,8 @@ if st.button("Generate Banners", type="primary", disabled=not ready, key="ca_gen
         "headline_eng": headline_eng,
         "headline_fra": headline_fra,
         "bg_color_hex": bg_color,
+        "text_color_hex": text_color,
+        "cta_color_hex": cta_color,
     }
 
     with st.spinner("Generating 12 banners..."):
